@@ -1,7 +1,8 @@
 {
-  "name": "nvidia",
+  "name": "nvidia-api-key-free",
   "version": "0.1.0",
   "private": true,
+  "description": "NVIDIA NIM model playground with latency benchmarking",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,9 +10,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.20",
+    "@ai-sdk/react": "^4.0.51",
+    "ai": "^7.0.48",
     "next": "16.2.12",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

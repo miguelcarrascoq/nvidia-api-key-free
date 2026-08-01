@@ -1,0 +1,75 @@
+import {
+  convertToModelMessages,
+  generateText,
+  streamText,
+  type UIMessage,
+} from 'ai';
+import { z } from 'zod';
+
+import { isAllowedModel } from '@/lib/models';
+import { createNvidiaProvider, hasNvidiaApiKey } from '@/lib/nvidia';
+
+export const maxDuration = 60;
+
+const bodySchema = z.object({
+  messages: z.array(z.any()).min(1),
+  model: z.string().min(1),
+  temperature: z.number().min(0).max(2).optional().default(0.2),
+  topP: z.number().min(0).max(1).optional().default(0.7),
+  maxTokens: z.number().int().min(1).max(4096).optional().default(512),
+  stream: z.boolean().optional().default(true),
+});
+
+export async function POST(req: Request) {
+  if (!hasNvidiaApiKey()) {
+    return Response.json(
+      { error: 'NVIDIA_API_KEY is not configured on the server.' },
+      { status: 500 },
+    );
+  }
+
+  const json = await req.json();
+  const parsed = bodySchema.safeParse(json);
+
+  if (!parsed.success) {
+    return Response.json(
+      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const { messages, model, temperature, topP, maxTokens, stream } = parsed.data;
+
+  if (!isAllowedModel(model)) {
+    return Response.json({ error: `Model not allowed: ${model}` }, { status: 400 });
+  }
+
+  const nvidia = createNvidiaProvider();
+  const modelMessages = await convertToModelMessages(messages as UIMessage[]);
+
+  if (!stream) {
+    const result = await generateText({
+      model: nvidia(model),
+      messages: modelMessages,
+      temperature,
+      topP,
+      maxOutputTokens: maxTokens,
+    });
+
+    return Response.json({
+      text: result.text,
+      usage: result.usage,
+      model,
+    });
+  }
+
+  const result = streamText({
+    model: nvidia(model),
+    messages: modelMessages,
+    temperature,
+    topP,
+    maxOutputTokens: maxTokens,
+  });
+
+  return result.toUIMessageStreamResponse();
+}

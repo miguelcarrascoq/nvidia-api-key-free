@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NVIDIA NIM Model Playground
 
-## Getting Started
+Next.js playground for the [NVIDIA Integrate API](https://integrate.api.nvidia.com/v1). Switch models, tune generation parameters, stream chat responses, and benchmark latency across the model list.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router)
+- [Vercel AI SDK](https://ai-sdk.dev) with `@ai-sdk/openai-compatible`
+- Tailwind CSS
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Edit `.env.local` and set:
+
+```bash
+NVIDIA_API_KEY=nvapi-your-key-here
+```
+
+## Develop
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Visual model selector for NVIDIA catalog IDs
+- Prompt textarea with temperature, top_p, max tokens, and stream toggle
+- Streaming chat via `/api/chat`
+- **Test latency** button that sequentially benchmarks every model and sorts the selector
+- **Set as default** / **Use fastest as default** (persisted in `localStorage`)
 
-## Learn More
+## API routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Purpose |
+| --- | --- |
+| `POST /api/chat` | Chat completions (stream or JSON) |
+| `POST /api/benchmark` | NDJSON latency benchmark for all models |
+| `GET /api/status` | API key configured flag + model catalog |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The API key stays on the server (`.env.local`). It is never sent to the browser.
+- Some catalog models may time out or return 404 depending on account access; the benchmark surfaces that live.

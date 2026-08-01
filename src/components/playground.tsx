@@ -349,7 +349,10 @@ export function Playground() {
         <div className="panel-head">
           <div>
             <h2>Models</h2>
-            <p>Select a model or benchmark the full list for live latency.</p>
+            <p>
+              Coding models from NVIDIA Build — select one or benchmark the full
+              list for live latency.
+            </p>
           </div>
           <div className="actions">
             <button
@@ -536,6 +539,7 @@ function ModelCard({
       <button type="button" className="model-select" onClick={onSelect}>
         <div className="model-top">
           <span className="vendor">{model.vendor}</span>
+          <span className="pill use-case">{model.useCase}</span>
           {rank ? <span className="rank">#{rank}</span> : null}
         </div>
         <h3>{model.label}</h3>

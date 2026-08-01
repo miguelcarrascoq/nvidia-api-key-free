@@ -329,6 +329,13 @@ input[type='range']:focus-visible,
   color: var(--muted);
 }
 
+.pill.use-case {
+  color: var(--accent-2);
+  border-color: rgba(183, 255, 60, 0.28);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
 .messages {
   display: grid;
   gap: 0.75rem;

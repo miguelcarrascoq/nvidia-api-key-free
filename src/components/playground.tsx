@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { ApiKeySetup } from '@/components/api-key-setup';
 import type { BenchmarkResult } from '@/lib/benchmark';
 import {
   DEFAULT_MODEL_STORAGE_KEY,
@@ -11,6 +12,8 @@ import {
   MODELS,
   type ModelDefinition,
 } from '@/lib/models';
+import { NVIDIA_API_KEY_HEADER } from '@/lib/api-key-header';
+import { useApiKeyStore } from '@/store/api-key';
 
 type BenchStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -27,7 +30,22 @@ function formatMs(ms: number | null | undefined): string {
   return `${(ms / 1000).toFixed(2)} s`;
 }
 
-export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) {
+export function Playground() {
+  const apiKey = useApiKeyStore((state) => state.apiKey);
+  const hasHydrated = useApiKeyStore((state) => state.hasHydrated);
+  const apiKeyConfigured = Boolean(apiKey.trim());
+
+  useEffect(() => {
+    // Ensure UI unlocks even if persist hydration callback is skipped.
+    const id = window.setTimeout(() => {
+      if (!useApiKeyStore.getState().hasHydrated) {
+        useApiKeyStore.setState({ hasHydrated: true });
+      }
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState(FALLBACK_DEFAULT_MODEL_ID);
   const [defaultModelId, setDefaultModelId] = useState(FALLBACK_DEFAULT_MODEL_ID);
   const [prompt, setPrompt] = useState(
@@ -59,6 +77,7 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
     maxTokens,
     stream,
   });
+  const apiKeyRef = useRef(apiKey);
 
   paramsRef.current = {
     model: selectedModelId,
@@ -67,6 +86,7 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
     maxTokens,
     stream,
   };
+  apiKeyRef.current = apiKey;
 
   useEffect(() => {
     const stored = window.localStorage.getItem(DEFAULT_MODEL_STORAGE_KEY);
@@ -76,10 +96,20 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
     }
   }, []);
 
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (!apiKeyConfigured) {
+      setKeyModalOpen(true);
+    }
+  }, [hasHydrated, apiKeyConfigured]);
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: '/api/chat',
+        headers: () => ({
+          [NVIDIA_API_KEY_HEADER]: apiKeyRef.current,
+        }),
         body: () => ({
           model: paramsRef.current.model,
           temperature: paramsRef.current.temperature,
@@ -144,7 +174,10 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            [NVIDIA_API_KEY_HEADER]: apiKey,
+          },
           body: JSON.stringify({
             messages: [
               {
@@ -202,7 +235,12 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
     setBenchProgress(null);
 
     try {
-      const response = await fetch('/api/benchmark', { method: 'POST' });
+      const response = await fetch('/api/benchmark', {
+        method: 'POST',
+        headers: {
+          [NVIDIA_API_KEY_HEADER]: apiKey,
+        },
+      });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || `Benchmark failed (${response.status})`);
@@ -258,8 +296,16 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
     }
   }
 
+  const showBlockingSetup = hasHydrated && !apiKeyConfigured;
+
   return (
     <div className="playground">
+      <ApiKeySetup
+        open={keyModalOpen || showBlockingSetup}
+        allowDismiss={apiKeyConfigured}
+        onClose={() => setKeyModalOpen(false)}
+      />
+
       <header className="hero">
         <div className="brand-lockup">
           <p className="brand">NVIDIA NIM</p>
@@ -270,9 +316,29 @@ export function Playground({ apiKeyConfigured }: { apiKeyConfigured: boolean }) 
           NVIDIA Integrate API.
         </p>
         <div className="status-row">
-          <span className={apiKeyConfigured ? 'pill ok' : 'pill bad'}>
-            {apiKeyConfigured ? 'API key configured' : 'API key missing'}
+          <span
+            className={
+              !hasHydrated
+                ? 'pill muted'
+                : apiKeyConfigured
+                  ? 'pill ok'
+                  : 'pill bad'
+            }
+          >
+            {!hasHydrated
+              ? 'Checking API key…'
+              : apiKeyConfigured
+                ? 'API key configured'
+                : 'API key missing'}
           </span>
+          <button
+            type="button"
+            className="btn tiny"
+            onClick={() => setKeyModalOpen(true)}
+            disabled={!hasHydrated}
+          >
+            {apiKeyConfigured ? 'Change key' : 'Set API key'}
+          </button>
           <span className="pill muted">Default: {defaultModelId}</span>
         </div>
       </header>

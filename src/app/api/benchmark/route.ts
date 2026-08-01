@@ -2,7 +2,7 @@ import { generateText } from 'ai';
 
 import type { BenchmarkResult } from '@/lib/benchmark';
 import { MODELS } from '@/lib/models';
-import { createNvidiaProvider, hasNvidiaApiKey } from '@/lib/nvidia';
+import { createNvidiaProvider, getApiKeyFromRequest } from '@/lib/nvidia';
 
 export const maxDuration = 300;
 
@@ -29,11 +29,14 @@ async function withTimeout<T>(
   }
 }
 
-async function benchmarkModel(modelId: string): Promise<BenchmarkResult> {
+async function benchmarkModel(
+  modelId: string,
+  apiKey: string,
+): Promise<BenchmarkResult> {
   const started = Date.now();
 
   try {
-    const nvidia = createNvidiaProvider();
+    const nvidia = createNvidiaProvider(apiKey);
     const result = await withTimeout(
       generateText({
         model: nvidia(modelId),
@@ -65,11 +68,13 @@ async function benchmarkModel(modelId: string): Promise<BenchmarkResult> {
   }
 }
 
-export async function POST() {
-  if (!hasNvidiaApiKey()) {
+export async function POST(req: Request) {
+  const apiKey = getApiKeyFromRequest(req);
+
+  if (!apiKey) {
     return Response.json(
-      { error: 'NVIDIA_API_KEY is not configured on the server.' },
-      { status: 500 },
+      { error: 'Missing NVIDIA API key. Set your key in the playground.' },
+      { status: 401 },
     );
   }
 
@@ -91,7 +96,7 @@ export async function POST() {
           modelId: model.id,
         });
 
-        const result = await benchmarkModel(model.id);
+        const result = await benchmarkModel(model.id, apiKey);
         send({ type: 'result', index, total: MODELS.length, result });
       }
 

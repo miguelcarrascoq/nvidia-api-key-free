@@ -7,7 +7,7 @@ import {
 import { z } from 'zod';
 
 import { isAllowedModel } from '@/lib/models';
-import { createNvidiaProvider, hasNvidiaApiKey } from '@/lib/nvidia';
+import { createNvidiaProvider, getApiKeyFromRequest } from '@/lib/nvidia';
 
 export const maxDuration = 60;
 
@@ -21,10 +21,12 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  if (!hasNvidiaApiKey()) {
+  const apiKey = getApiKeyFromRequest(req);
+
+  if (!apiKey) {
     return Response.json(
-      { error: 'NVIDIA_API_KEY is not configured on the server.' },
-      { status: 500 },
+      { error: 'Missing NVIDIA API key. Set your key in the playground.' },
+      { status: 401 },
     );
   }
 
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     return Response.json({ error: `Model not allowed: ${model}` }, { status: 400 });
   }
 
-  const nvidia = createNvidiaProvider();
+  const nvidia = createNvidiaProvider(apiKey);
   const modelMessages = await convertToModelMessages(messages as UIMessage[]);
 
   if (!stream) {

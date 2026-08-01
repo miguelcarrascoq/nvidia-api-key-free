@@ -316,29 +316,31 @@ export function Playground() {
           NVIDIA Integrate API.
         </p>
         <div className="status-row">
-          <span
-            className={
-              !hasHydrated
-                ? 'pill muted'
+          <div className="key-status">
+            <span
+              className={
+                !hasHydrated
+                  ? 'pill muted'
+                  : apiKeyConfigured
+                    ? 'pill ok'
+                    : 'pill bad'
+              }
+            >
+              {!hasHydrated
+                ? 'Checking API key…'
                 : apiKeyConfigured
-                  ? 'pill ok'
-                  : 'pill bad'
-            }
-          >
-            {!hasHydrated
-              ? 'Checking API key…'
-              : apiKeyConfigured
-                ? 'API key configured'
-                : 'API key missing'}
-          </span>
-          <button
-            type="button"
-            className="btn tiny"
-            onClick={() => setKeyModalOpen(true)}
-            disabled={!hasHydrated}
-          >
-            {apiKeyConfigured ? 'Change key' : 'Set API key'}
-          </button>
+                  ? 'API key configured'
+                  : 'API key missing'}
+            </span>
+            <button
+              type="button"
+              className="btn tiny"
+              onClick={() => setKeyModalOpen(true)}
+              disabled={!hasHydrated}
+            >
+              {apiKeyConfigured ? 'Change key' : 'Set API key'}
+            </button>
+          </div>
           <span className="pill muted">Default: {defaultModelId}</span>
         </div>
       </header>

@@ -277,13 +277,27 @@ input[type='range']:focus-visible,
 }
 
 .btn.tiny {
-  width: 100%;
-  border-radius: 0.7rem;
-  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
   background: rgba(118, 255, 168, 0.08);
   border-color: var(--line);
   color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.model-card .btn.tiny {
+  width: 100%;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.7rem;
   font-size: 0.85rem;
+}
+
+.key-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .pill {

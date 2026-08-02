@@ -12,6 +12,12 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import type { BenchmarkResult } from '@/lib/benchmark';
 import {
+  DEFAULT_GENERATION_PARAMS,
+  GENERATION_PRESETS,
+  matchGenerationPreset,
+  type GenerationParams,
+} from '@/lib/generation-presets';
+import {
   DEFAULT_MODEL_STORAGE_KEY,
   FALLBACK_DEFAULT_MODEL_ID,
   MODELS,
@@ -60,9 +66,11 @@ export function Playground() {
   const [prompt, setPrompt] = useState(
     'In one short sentence: how do I kill a process in Linux?',
   );
-  const [temperature, setTemperature] = useState(0.2);
-  const [topP, setTopP] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(512);
+  const [temperature, setTemperature] = useState(
+    DEFAULT_GENERATION_PARAMS.temperature,
+  );
+  const [topP, setTopP] = useState(DEFAULT_GENERATION_PARAMS.topP);
+  const [maxTokens, setMaxTokens] = useState(DEFAULT_GENERATION_PARAMS.maxTokens);
   const [stream, setStream] = useState(true);
   const [nonStreamReply, setNonStreamReply] = useState<string | null>(null);
   const [nonStreamPending, setNonStreamPending] = useState(false);
@@ -135,6 +143,14 @@ export function Playground() {
   });
 
   const isChatBusy = status === 'submitted' || status === 'streaming' || nonStreamPending;
+
+  const activePreset = matchGenerationPreset({ temperature, topP, maxTokens });
+
+  function applyGenerationParams(params: GenerationParams) {
+    setTemperature(params.temperature);
+    setTopP(params.topP);
+    setMaxTokens(params.maxTokens);
+  }
 
   const orderedModels = useMemo(() => {
     const withLatency = MODELS.map((model) => ({
@@ -483,6 +499,33 @@ export function Playground() {
           />
 
           <div className="my-4 grid gap-3.5">
+            <div className="grid gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Preset</span>
+              <div
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-label="Generation presets"
+              >
+                {GENERATION_PRESETS.map((preset) => {
+                  const isActive = activePreset?.id === preset.id;
+                  return (
+                    <Button
+                      key={preset.id}
+                      type="button"
+                      size="sm"
+                      variant={isActive ? 'default' : 'outline'}
+                      aria-pressed={isActive}
+                      onClick={() => applyGenerationParams(preset)}
+                    >
+                      {preset.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="m-0 text-xs text-muted-foreground">
+                {activePreset?.description ?? 'Custom — sliders adjusted manually.'}
+              </p>
+            </div>
             <div className="grid gap-1.5">
               <Label htmlFor="temperature" className="text-muted-foreground font-medium">
                 Temperature {temperature.toFixed(2)}

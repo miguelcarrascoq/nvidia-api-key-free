@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { Pin } from 'lucide-react';
+import { Loader2, Pin } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
@@ -47,6 +47,24 @@ function formatMs(ms: number | null | undefined): string {
 
 const panelClass =
   'rounded-2xl border border-border bg-bg-2 p-5 shadow-[var(--shadow)] animate-rise';
+
+function AssistantLoadingCard() {
+  return (
+    <article
+      className="rounded-xl border border-primary/28 bg-[rgba(5,10,8,0.55)] px-4 py-3.5"
+      aria-busy
+    >
+      <header className="mb-1.5 flex items-center gap-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+        Assistant
+        <Loader2 className="size-3.5 animate-spin text-primary" aria-hidden />
+      </header>
+      <p className="m-0 flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
+        Generating response…
+      </p>
+    </article>
+  );
+}
 
 export function Playground() {
   const apiKey = useApiKeyStore((state) => state.apiKey);
@@ -700,8 +718,16 @@ export function Playground() {
               type="submit"
               disabled={!apiKeyConfigured || isChatBusy || !prompt.trim()}
               className="max-md:flex-1"
+              aria-busy={isChatBusy}
             >
-              {isChatBusy ? 'Running…' : 'Send'}
+              {isChatBusy ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden />
+                  Running…
+                </>
+              ) : (
+                'Send'
+              )}
             </Button>
             {status === 'streaming' || status === 'submitted' ? (
               <Button
@@ -745,33 +771,49 @@ export function Playground() {
           )}
           <div className="mt-4 grid gap-3">
             {messages.length === 0 && !nonStreamReply ? (
-              <p className="m-0 text-sm text-muted-foreground">
-                Responses will appear here.
-              </p>
+              nonStreamPending ? (
+                <AssistantLoadingCard />
+              ) : (
+                <p className="m-0 text-sm text-muted-foreground">
+                  Responses will appear here.
+                </p>
+              )
             ) : (
-              messages.map((message) => {
-                const text = messageText(message);
-                return (
-                  <article
-                    key={message.id}
-                    className={cn(
-                      'rounded-xl border bg-[rgba(5,10,8,0.55)] px-4 py-3.5',
-                      message.role === 'user'
-                        ? 'border-accent-2/22'
-                        : 'border-primary/28',
-                    )}
-                  >
-                    <header className="mb-1.5 text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                      {message.role === 'user' ? 'You' : 'Assistant'}
-                    </header>
-                    {text ? (
-                      <MarkdownContent content={text} />
-                    ) : status === 'streaming' ? (
-                      <p className="m-0 leading-relaxed">…</p>
-                    ) : null}
-                  </article>
-                );
-              })
+              <>
+                {messages.map((message) => {
+                  const text = messageText(message);
+                  const isAssistantLoading =
+                    message.role === 'assistant' &&
+                    !text &&
+                    (status === 'submitted' || status === 'streaming');
+
+                  if (isAssistantLoading) {
+                    return <AssistantLoadingCard key={message.id} />;
+                  }
+
+                  return (
+                    <article
+                      key={message.id}
+                      className={cn(
+                        'rounded-xl border bg-[rgba(5,10,8,0.55)] px-4 py-3.5',
+                        message.role === 'user'
+                          ? 'border-accent-2/22'
+                          : 'border-primary/28',
+                      )}
+                    >
+                      <header className="mb-1.5 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                        {message.role === 'user' ? 'You' : 'Assistant'}
+                      </header>
+                      {text ? <MarkdownContent content={text} /> : null}
+                    </article>
+                  );
+                })}
+                {isChatBusy &&
+                messages.length > 0 &&
+                messages[messages.length - 1]?.role === 'user' ? (
+                  <AssistantLoadingCard />
+                ) : null}
+              </>
             )}
           </div>
         </div>

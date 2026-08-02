@@ -169,6 +169,7 @@ export function Playground() {
     });
 
   const isChatBusy = status === 'submitted' || status === 'streaming' || nonStreamPending;
+  const wasChatBusyRef = useRef(false);
   const hasResponse =
     messages.length > 0 || Boolean(nonStreamReply) || Boolean(error || nonStreamError);
 
@@ -187,6 +188,18 @@ export function Playground() {
   function scrollResponseIntoView() {
     responsePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  useEffect(() => {
+    if (wasChatBusyRef.current && !isChatBusy && hasResponse) {
+      // Wait a frame so the final message content is laid out before scrolling.
+      const id = window.requestAnimationFrame(() => {
+        scrollResponseIntoView();
+      });
+      wasChatBusyRef.current = isChatBusy;
+      return () => window.cancelAnimationFrame(id);
+    }
+    wasChatBusyRef.current = isChatBusy;
+  }, [isChatBusy, hasResponse]);
 
   const activePreset = matchGenerationPreset({ temperature, topP, maxTokens });
 

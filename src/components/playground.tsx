@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { ChevronRight, Loader2, Pin } from 'lucide-react';
+import { Check, ChevronRight, Copy, Loader2, Pin } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
@@ -98,6 +98,7 @@ export function Playground() {
   const [nonStreamError, setNonStreamError] = useState<string | null>(null);
   const [paramsOpen, setParamsOpen] = useState(true);
   const [modelsOpen, setModelsOpen] = useState(true);
+  const [responseCopied, setResponseCopied] = useState(false);
 
   const [benchStatus, setBenchStatus] = useState<BenchStatus>('idle');
   const [benchProgress, setBenchProgress] = useState<{
@@ -176,10 +177,25 @@ export function Playground() {
     messages.length > 0 || Boolean(nonStreamReply) || Boolean(error || nonStreamError);
   const latestMessageText =
     messages.length > 0 ? messageText(messages[messages.length - 1]!) : '';
+  const fullResponseText = useMemo(() => {
+    const assistantTexts = messages
+      .filter((message) => message.role === 'assistant')
+      .map(messageText)
+      .filter(Boolean);
+    if (assistantTexts.length > 0) return assistantTexts.join('\n\n');
+    return nonStreamReply?.trim() ?? '';
+  }, [messages, nonStreamReply]);
+  const canCopyResponse = Boolean(fullResponseText) && !isChatBusy;
 
   useEffect(() => {
     setParamsOpen(!hasResponse);
   }, [hasResponse]);
+
+  useEffect(() => {
+    if (!responseCopied) return;
+    const timer = window.setTimeout(() => setResponseCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [responseCopied]);
 
   function clearResponse() {
     if (isChatBusy) return;
@@ -187,6 +203,17 @@ export function Playground() {
     clearError();
     setNonStreamReply(null);
     setNonStreamError(null);
+    setResponseCopied(false);
+  }
+
+  async function copyResponse() {
+    if (!canCopyResponse) return;
+    try {
+      await navigator.clipboard.writeText(fullResponseText);
+      setResponseCopied(true);
+    } catch {
+      setResponseCopied(false);
+    }
   }
 
   function scrollResponseIntoView() {
@@ -816,15 +843,28 @@ export function Playground() {
           <div className="sticky top-0 z-10 -mx-5 -mt-5 mb-1 border-b border-border/70 bg-bg-2/95 px-5 pt-5 pb-3 backdrop-blur-md">
             <div className="flex flex-wrap items-center justify-between gap-2.5">
               <h2 className="m-0 text-lg font-semibold">Response</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={clearResponse}
-                disabled={!hasResponse || isChatBusy}
-              >
-                Clear
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyResponse}
+                  disabled={!canCopyResponse}
+                  aria-label={responseCopied ? 'Copied' : 'Copy full response'}
+                >
+                  {responseCopied ? <Check /> : <Copy />}
+                  {responseCopied ? 'Copied' : 'Copy'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearResponse}
+                  disabled={!hasResponse || isChatBusy}
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
             <p className="mt-1.5 mb-0 text-sm text-muted-foreground">
               Model{' '}

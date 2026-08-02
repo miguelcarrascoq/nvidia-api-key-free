@@ -99,7 +99,7 @@ export const MODELS: ModelDefinition[] = [
   },
 ];
 
-export const FALLBACK_DEFAULT_MODEL_ID = 'z-ai/glm-5.2';
+export const FALLBACK_DEFAULT_MODEL_ID = 'nvidia/nemotron-3-ultra-550b-a55b';
 
 export const DEFAULT_MODEL_STORAGE_KEY = 'nvidia.defaultModelId';
 

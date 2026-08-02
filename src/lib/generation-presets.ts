@@ -15,7 +15,7 @@ export type GenerationPreset = {
 export const DEFAULT_GENERATION_PARAMS: GenerationParams = {
   temperature: 0.2,
   topP: 0.7,
-  maxTokens: 512,
+  maxTokens: 1024,
 };
 
 export const GENERATION_PRESETS: GenerationPreset[] = [
@@ -31,7 +31,7 @@ export const GENERATION_PRESETS: GenerationPreset[] = [
     description: 'More deterministic and factual.',
     temperature: 0.0,
     topP: 0.3,
-    maxTokens: 512,
+    maxTokens: 1024,
   },
   {
     id: 'balanced',

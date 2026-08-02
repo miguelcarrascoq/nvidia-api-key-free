@@ -6,6 +6,7 @@ import {
 } from 'ai';
 import { z } from 'zod';
 
+import type { ChatUIMessage } from '@/lib/chat-message';
 import { isAllowedModel } from '@/lib/models';
 import { createNvidiaProvider, getApiKeyFromRequest } from '@/lib/nvidia';
 
@@ -16,7 +17,7 @@ const bodySchema = z.object({
   model: z.string().min(1),
   temperature: z.number().min(0).max(2).optional().default(0.2),
   topP: z.number().min(0).max(1).optional().default(0.7),
-  maxTokens: z.number().int().min(1).max(4096).optional().default(512),
+  maxTokens: z.number().int().min(1).max(4096).optional().default(1024),
   stream: z.boolean().optional().default(true),
 });
 
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
     return Response.json({
       text: result.text,
       usage: result.usage,
+      finishReason: result.finishReason,
       model,
     });
   }
@@ -73,5 +75,11 @@ export async function POST(req: Request) {
     maxOutputTokens: maxTokens,
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse<ChatUIMessage>({
+    messageMetadata: ({ part }) => {
+      if (part.type === 'finish') {
+        return { finishReason: part.finishReason };
+      }
+    },
+  });
 }

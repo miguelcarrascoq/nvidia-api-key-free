@@ -1,7 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, type UIMessage } from 'ai';
+import { DefaultChatTransport } from 'ai';
 import { Check, ChevronRight, Copy, Loader2, Pin } from 'lucide-react';
 import {
   useEffect,
@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import type { BenchmarkResult } from '@/lib/benchmark';
+import type { ChatUIMessage } from '@/lib/chat-message';
 import {
   DEFAULT_GENERATION_PARAMS,
   GENERATION_PRESETS,
@@ -39,7 +40,7 @@ import { cn } from '@/lib/utils';
 
 type BenchStatus = 'idle' | 'running' | 'done' | 'error';
 
-function messageText(message: UIMessage): string {
+function messageText(message: ChatUIMessage): string {
   return message.parts
     .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
     .map((part) => part.text)
@@ -236,7 +237,7 @@ export function Playground() {
   );
 
   const { messages, sendMessage, status, stop, setMessages, error, clearError } =
-    useChat({
+    useChat<ChatUIMessage>({
       transport,
     });
 
@@ -419,6 +420,9 @@ export function Playground() {
             id: crypto.randomUUID(),
             role: 'assistant',
             parts: [{ type: 'text', text: data.text }],
+            metadata: {
+              finishReason: data.finishReason,
+            },
           },
         ]);
         setNonStreamReply(data.text);
@@ -1007,6 +1011,17 @@ export function Playground() {
                             aria-hidden
                           />
                           Generating response…
+                        </p>
+                      ) : null}
+                      {!isAssistantStreaming &&
+                      message.role === 'assistant' &&
+                      message.metadata?.finishReason === 'length' ? (
+                        <p
+                          className="mt-3 mb-0 text-sm text-muted-foreground"
+                          role="status"
+                        >
+                          Response stopped at the max token limit. Raise Max tokens
+                          in Parameters and try again.
                         </p>
                       ) : null}
                     </article>

@@ -3,7 +3,14 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { Check, ChevronRight, Copy, Loader2, Pin } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
 import { MarkdownContent } from '@/components/markdown-content';
@@ -47,6 +54,69 @@ function formatMs(ms: number | null | undefined): string {
 
 const panelClass =
   'rounded-2xl border border-border bg-bg-2 p-5 shadow-[var(--shadow)] animate-rise';
+
+const COLLAPSE_MS = 700;
+
+function CollapsibleContent({
+  open,
+  children,
+  className,
+  id,
+}: {
+  open: boolean;
+  children: ReactNode;
+  className?: string;
+  id?: string;
+}) {
+  const innerRef = useRef<HTMLDivElement>(null);
+  const skipTransitionRef = useRef(true);
+  const [height, setHeight] = useState(0);
+  const [animate, setAnimate] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+
+    if (skipTransitionRef.current) {
+      skipTransitionRef.current = false;
+      setHeight(open ? el.scrollHeight : 0);
+      return;
+    }
+
+    setAnimate(true);
+    setHeight(open ? el.scrollHeight : 0);
+  }, [open]);
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el || !open) return;
+
+    const syncHeight = () => setHeight(el.scrollHeight);
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open]);
+
+  return (
+    <div
+      id={id}
+      className="overflow-hidden motion-reduce:!transition-none"
+      style={{
+        height,
+        opacity: open ? 1 : 0,
+        transform: open ? 'translateY(0)' : 'translateY(-10px)',
+        transition: animate
+          ? `height ${COLLAPSE_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity ${COLLAPSE_MS}ms cubic-bezier(0.4, 0, 0.2, 1), transform ${COLLAPSE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`
+          : 'none',
+      }}
+      inert={!open}
+    >
+      <div ref={innerRef} className={className}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function AssistantLoadingCard() {
   return (
@@ -532,17 +602,22 @@ export function Playground() {
       </div>
 
       <section className={cn(panelClass, '[animation-delay:120ms]')}>
-        <details
-          className="group/models"
-          open={modelsOpen}
-          onToggle={(event) => setModelsOpen(event.currentTarget.open)}
-        >
-          <summary className="flex cursor-pointer list-none flex-col gap-3 marker:content-none [&::-webkit-details-marker]:hidden md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0 flex-1">
+        <div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <button
+              type="button"
+              className="min-w-0 flex-1 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-expanded={modelsOpen}
+              aria-controls="models-panel"
+              onClick={() => setModelsOpen((open) => !open)}
+            >
               <div className="flex items-center gap-2">
                 <ChevronRight
                   aria-hidden
-                  className="size-4 shrink-0 text-muted-foreground transition-transform group-open/models:rotate-90"
+                  className={cn(
+                    'size-4 shrink-0 text-muted-foreground transition-transform duration-700 ease-in-out motion-reduce:transition-none',
+                    modelsOpen && 'rotate-90',
+                  )}
                 />
                 <h2 className="m-0 text-lg font-semibold">Models</h2>
               </div>
@@ -567,14 +642,8 @@ export function Playground() {
                   </Badge>
                 ) : null}
               </div>
-            </div>
-            <div
-              className="flex w-full flex-wrap items-center gap-2.5 md:w-auto"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }}
-            >
+            </button>
+            <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto">
               <Button
                 type="button"
                 variant="outline"
@@ -596,9 +665,9 @@ export function Playground() {
                 </Button>
               ) : null}
             </div>
-          </summary>
+          </div>
 
-          <div className="mt-4">
+          <CollapsibleContent open={modelsOpen} className="mt-4" id="models-panel">
             <p className="mt-0 mb-3 text-sm text-muted-foreground">
               Select a model or benchmark the list for live latency.
             </p>
@@ -670,8 +739,8 @@ export function Playground() {
                 />
               ))}
             </div>
-          </div>
-        </details>
+          </CollapsibleContent>
+        </div>
       </section>
 
       <section className="grid gap-4 animate-rise [animation-delay:200ms]">
@@ -699,15 +768,20 @@ export function Playground() {
             className="mt-3.5 min-h-[150px] resize-y rounded-xl bg-[rgba(5,10,8,0.8)] px-4 py-3.5 text-base leading-relaxed"
           />
 
-          <details
-            className="group/params my-4 rounded-xl border border-border/80 bg-[rgba(5,10,8,0.35)] px-3.5 py-2.5"
-            open={paramsOpen}
-            onToggle={(event) => setParamsOpen(event.currentTarget.open)}
-          >
-            <summary className="flex cursor-pointer list-none select-none items-center gap-2 text-sm font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+          <div className="my-4 rounded-xl border border-border/80 bg-[rgba(5,10,8,0.35)] px-3.5 py-2.5">
+            <button
+              type="button"
+              className="flex w-full cursor-pointer select-none items-center gap-2 rounded-md text-left text-sm font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-expanded={paramsOpen}
+              aria-controls="params-panel"
+              onClick={() => setParamsOpen((open) => !open)}
+            >
               <ChevronRight
                 aria-hidden
-                className="size-3.5 shrink-0 transition-transform group-open/params:rotate-90"
+                className={cn(
+                  'size-3.5 shrink-0 transition-transform duration-700 ease-in-out motion-reduce:transition-none',
+                  paramsOpen && 'rotate-90',
+                )}
               />
               <span>
                 Parameters
@@ -721,91 +795,93 @@ export function Playground() {
                   </span>
                 )}
               </span>
-            </summary>
-            <div className="mt-3.5 grid gap-3.5">
-              <div className="grid gap-2">
-                <span className="text-sm font-medium text-muted-foreground">Preset</span>
-                <div
-                  className="flex flex-wrap gap-2"
-                  role="group"
-                  aria-label="Generation presets"
-                >
-                  {GENERATION_PRESETS.map((preset) => {
-                    const isActive = activePreset?.id === preset.id;
-                    return (
-                      <Button
-                        key={preset.id}
-                        type="button"
-                        size="sm"
-                        variant={isActive ? 'default' : 'outline'}
-                        aria-pressed={isActive}
-                        onClick={() => applyGenerationParams(preset)}
-                      >
-                        {preset.label}
-                      </Button>
-                    );
-                  })}
+            </button>
+            <CollapsibleContent open={paramsOpen} className="mt-3.5" id="params-panel">
+              <div className="grid gap-3.5">
+                <div className="grid gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Preset</span>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="Generation presets"
+                  >
+                    {GENERATION_PRESETS.map((preset) => {
+                      const isActive = activePreset?.id === preset.id;
+                      return (
+                        <Button
+                          key={preset.id}
+                          type="button"
+                          size="sm"
+                          variant={isActive ? 'default' : 'outline'}
+                          aria-pressed={isActive}
+                          onClick={() => applyGenerationParams(preset)}
+                        >
+                          {preset.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="m-0 text-xs text-muted-foreground">
+                    {activePreset?.description ?? 'Custom — sliders adjusted manually.'}
+                  </p>
                 </div>
-                <p className="m-0 text-xs text-muted-foreground">
-                  {activePreset?.description ?? 'Custom — sliders adjusted manually.'}
-                </p>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="temperature" className="text-muted-foreground font-medium">
-                  Temperature {temperature.toFixed(2)}
+                <div className="grid gap-1.5">
+                  <Label htmlFor="temperature" className="text-muted-foreground font-medium">
+                    Temperature {temperature.toFixed(2)}
+                  </Label>
+                  <input
+                    id="temperature"
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={temperature}
+                    onChange={(event) => setTemperature(Number(event.target.value))}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="top-p" className="text-muted-foreground font-medium">
+                    Top P {topP.toFixed(2)}
+                  </Label>
+                  <input
+                    id="top-p"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={topP}
+                    onChange={(event) => setTopP(Number(event.target.value))}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="max-tokens" className="text-muted-foreground font-medium">
+                    Max tokens {maxTokens}
+                  </Label>
+                  <input
+                    id="max-tokens"
+                    type="range"
+                    min={16}
+                    max={2048}
+                    step={16}
+                    value={maxTokens}
+                    onChange={(event) => setMaxTokens(Number(event.target.value))}
+                  />
+                </div>
+                <Label
+                  htmlFor="stream"
+                  className="grid grid-cols-[auto_1fr] items-center gap-2.5 text-muted-foreground font-medium"
+                >
+                  <input
+                    id="stream"
+                    type="checkbox"
+                    checked={stream}
+                    onChange={(event) => setStream(event.target.checked)}
+                  />
+                  <span>Stream response</span>
                 </Label>
-                <input
-                  id="temperature"
-                  type="range"
-                  min={0}
-                  max={2}
-                  step={0.05}
-                  value={temperature}
-                  onChange={(event) => setTemperature(Number(event.target.value))}
-                />
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="top-p" className="text-muted-foreground font-medium">
-                  Top P {topP.toFixed(2)}
-                </Label>
-                <input
-                  id="top-p"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={topP}
-                  onChange={(event) => setTopP(Number(event.target.value))}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="max-tokens" className="text-muted-foreground font-medium">
-                  Max tokens {maxTokens}
-                </Label>
-                <input
-                  id="max-tokens"
-                  type="range"
-                  min={16}
-                  max={2048}
-                  step={16}
-                  value={maxTokens}
-                  onChange={(event) => setMaxTokens(Number(event.target.value))}
-                />
-              </div>
-              <Label
-                htmlFor="stream"
-                className="grid grid-cols-[auto_1fr] items-center gap-2.5 text-muted-foreground font-medium"
-              >
-                <input
-                  id="stream"
-                  type="checkbox"
-                  checked={stream}
-                  onChange={(event) => setStream(event.target.checked)}
-                />
-                <span>Stream response</span>
-              </Label>
-            </div>
-          </details>
+            </CollapsibleContent>
+          </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <Button

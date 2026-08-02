@@ -138,11 +138,22 @@ export function Playground() {
     [],
   );
 
-  const { messages, sendMessage, status, stop, setMessages, error } = useChat({
-    transport,
-  });
+  const { messages, sendMessage, status, stop, setMessages, error, clearError } =
+    useChat({
+      transport,
+    });
 
   const isChatBusy = status === 'submitted' || status === 'streaming' || nonStreamPending;
+  const hasResponse =
+    messages.length > 0 || Boolean(nonStreamReply) || Boolean(error || nonStreamError);
+
+  function clearResponse() {
+    if (isChatBusy) return;
+    setMessages([]);
+    clearError();
+    setNonStreamReply(null);
+    setNonStreamError(null);
+  }
 
   const activePreset = matchGenerationPreset({ temperature, topP, maxTokens });
 
@@ -604,7 +615,18 @@ export function Playground() {
         </form>
 
         <div className={cn(panelClass, 'min-h-[420px] [animation-delay:240ms]')}>
-          <h2 className="m-0 text-lg font-semibold">Response</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <h2 className="m-0 text-lg font-semibold">Response</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={clearResponse}
+              disabled={!hasResponse || isChatBusy}
+            >
+              Clear
+            </Button>
+          </div>
           <p className="mt-1.5 mb-0 text-sm text-muted-foreground">
             Model{' '}
             <code className="text-accent-2 break-all">{selectedModelId}</code>

@@ -152,6 +152,36 @@
   }
 }
 
+/* Dedicated spinner: tw-animate-css registers --tw-animation-iteration-count
+   with initial-value 1, which can make Tailwind's animate-spin stop after one turn. */
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-spin {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 0;
+  animation: loading-spin 0.85s linear infinite !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+  will-change: transform;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spin {
+    animation: loading-spin 0.85s linear infinite;
+    animation-iteration-count: infinite;
+    animation-play-state: running;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

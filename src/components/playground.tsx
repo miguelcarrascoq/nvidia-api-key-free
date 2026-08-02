@@ -119,6 +119,14 @@ function CollapsibleContent({
   );
 }
 
+function LoadingSpinner({ className }: { className?: string }) {
+  return (
+    <span className={cn('loading-spin size-4', className)} aria-hidden>
+      <Loader2 className="block size-full" />
+    </span>
+  );
+}
+
 function AssistantLoadingCard() {
   return (
     <article
@@ -127,10 +135,10 @@ function AssistantLoadingCard() {
     >
       <header className="mb-1.5 flex items-center gap-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">
         Assistant
-        <Loader2 className="size-3.5 animate-spin text-primary" aria-hidden />
+        <LoadingSpinner className="size-3.5 text-primary" />
       </header>
       <p className="m-0 flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin text-primary" aria-hidden />
+        <LoadingSpinner className="size-4 text-primary" />
         Generating response…
       </p>
     </article>
@@ -896,7 +904,7 @@ export function Playground() {
             >
               {isChatBusy ? (
                 <>
-                  <Loader2 className="animate-spin" aria-hidden />
+                  <LoadingSpinner />
                   Running…
                 </>
               ) : (
@@ -994,10 +1002,7 @@ export function Playground() {
                       <header className="mb-1.5 flex items-center gap-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                         {message.role === 'user' ? 'You' : 'Assistant'}
                         {isAssistantStreaming ? (
-                          <Loader2
-                            className="size-3.5 animate-spin text-primary"
-                            aria-hidden
-                          />
+                          <LoadingSpinner className="size-3.5 text-primary" />
                         ) : null}
                       </header>
                       {text ? <MarkdownContent content={text} /> : null}
@@ -1006,10 +1011,7 @@ export function Playground() {
                           className="mt-3 mb-0 flex items-center gap-2 text-sm text-muted-foreground"
                           aria-live="polite"
                         >
-                          <Loader2
-                            className="size-4 animate-spin text-primary"
-                            aria-hidden
-                          />
+                          <LoadingSpinner className="size-4 text-primary" />
                           Generating response…
                         </p>
                       ) : null}

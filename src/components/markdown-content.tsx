@@ -119,11 +119,21 @@ function loadMermaid() {
         startOnLoad: false,
         theme: 'dark',
         securityLevel: 'strict',
+        // Never inject Mermaid's bomb / "Syntax error in text" SVG into the page.
+        suppressErrorRendering: true,
       });
       return mod.default;
     });
   }
   return mermaidModule;
+}
+
+function isMermaidErrorSvg(svg: string): boolean {
+  // Theme CSS always mentions ".error-icon" — only treat real error diagrams as failures.
+  return (
+    svg.includes('Syntax error in text') ||
+    /aria-roledescription\s*=\s*["']error["']/.test(svg)
+  );
 }
 
 function MermaidBlock({ code }: { code: string }) {
@@ -149,10 +159,16 @@ function MermaidBlock({ code }: { code: string }) {
           `mermaid-${reactId}-${renderCount.current}`,
           code,
         );
-        if (!cancelled) {
-          setSvg(rendered);
-          setError(false);
+        if (cancelled) return;
+
+        if (isMermaidErrorSvg(rendered)) {
+          setSvg(null);
+          setError(true);
+          return;
         }
+
+        setSvg(rendered);
+        setError(false);
       } catch {
         if (!cancelled) {
           setSvg(null);
@@ -180,14 +196,11 @@ function MermaidBlock({ code }: { code: string }) {
   }
 
   return (
-    <div className="markdown-code-block">
-      <CopyButton code={code} />
+    <div className="markdown-mermaid-fallback">
       {error ? (
-        <p className="markdown-mermaid-error">Could not render diagram</p>
+        <p className="markdown-mermaid-error">Diagram could not be rendered — showing source</p>
       ) : null}
-      <pre>
-        <code className="language-mermaid">{code}</code>
-      </pre>
+      <CodeBlock code={code} language="mermaid" />
     </div>
   );
 }

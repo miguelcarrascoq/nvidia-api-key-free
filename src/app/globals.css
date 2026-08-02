@@ -407,9 +407,22 @@
   height: auto;
 }
 
-.markdown-body .markdown-mermaid-error {
+.markdown-body .markdown-mermaid-fallback {
+  margin: 0.75em 0;
+}
+
+.markdown-body .markdown-mermaid-fallback > .markdown-code-block {
   margin: 0;
-  padding: 0.65rem 2.75rem 0 0.9rem;
+}
+
+.markdown-body .markdown-mermaid-error {
+  margin: 0 0 0.4rem;
   font-size: 0.8rem;
   color: var(--muted-foreground);
+}
+
+/* Hide Mermaid's default syntax-error bomb if it ever leaks into the DOM. */
+body > div[id^='dmermaid-']:has(svg[aria-roledescription='error']),
+.markdown-body svg[aria-roledescription='error'] {
+  display: none !important;
 }

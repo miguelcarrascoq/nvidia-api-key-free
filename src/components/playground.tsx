@@ -2,6 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
+import { Pin } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
@@ -25,6 +26,7 @@ import {
   type ModelDefinition,
 } from '@/lib/models';
 import { NVIDIA_API_KEY_HEADER } from '@/lib/api-key-header';
+import { nextSamplePrompt, SAMPLE_PROMPTS } from '@/lib/sample-prompts';
 import { useApiKeyStore } from '@/store/api-key';
 import { cn } from '@/lib/utils';
 
@@ -77,6 +79,7 @@ export function Playground() {
   const [nonStreamPending, setNonStreamPending] = useState(false);
   const [nonStreamError, setNonStreamError] = useState<string | null>(null);
   const [paramsOpen, setParamsOpen] = useState(true);
+  const [modelsOpen, setModelsOpen] = useState(true);
 
   const [benchStatus, setBenchStatus] = useState<BenchStatus>('idle');
   const [benchProgress, setBenchProgress] = useState<{
@@ -90,6 +93,7 @@ export function Playground() {
   const [benchError, setBenchError] = useState<string | null>(null);
 
   const responsePanelRef = useRef<HTMLDivElement>(null);
+  const samplePromptDeckRef = useRef<string[]>([]);
   const paramsRef = useRef({
     model: selectedModelId,
     temperature,
@@ -174,6 +178,15 @@ export function Playground() {
     setMaxTokens(params.maxTokens);
   }
 
+  function pickRandomPrompt() {
+    const { prompt: nextPrompt, deck } = nextSamplePrompt(
+      samplePromptDeckRef.current,
+      SAMPLE_PROMPTS,
+    );
+    samplePromptDeckRef.current = deck;
+    setPrompt(nextPrompt);
+  }
+
   const orderedModels = useMemo(() => {
     const withLatency = MODELS.map((model) => ({
       model,
@@ -201,6 +214,10 @@ export function Playground() {
         .sort((a, b) => (a.latencyMs ?? 0) - (b.latencyMs ?? 0))[0] ?? null
     );
   }, [benchResults]);
+
+  const selectedModel =
+    MODELS.find((model) => model.id === selectedModelId) ?? MODELS[0];
+  const selectedBenchResult = benchResults[selectedModelId];
 
   function persistDefault(modelId: string) {
     window.localStorage.setItem(DEFAULT_MODEL_STORAGE_KEY, modelId);
@@ -409,101 +426,146 @@ export function Playground() {
       </div>
 
       <section className={cn(panelClass, '[animation-delay:120ms]')}>
-        <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row">
-          <div>
-            <h2 className="m-0 text-lg font-semibold">Models</h2>
-            <p className="mt-1.5 mb-0 text-sm text-muted-foreground md:text-[0.95rem]">
-              Coding models from NVIDIA Build — select one or benchmark the full
-              list for live latency.
-            </p>
-          </div>
-          <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={runBenchmark}
-              disabled={!apiKeyConfigured || benchStatus === 'running'}
-              className="max-md:flex-1"
+        <details
+          className="group/models"
+          open={modelsOpen}
+          onToggle={(event) => setModelsOpen(event.currentTarget.open)}
+        >
+          <summary className="flex cursor-pointer list-none flex-col gap-3 marker:content-none [&::-webkit-details-marker]:hidden md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="m-0 text-lg font-semibold">Models</h2>
+                <span
+                  aria-hidden
+                  className="text-xs text-muted-foreground transition-transform group-open/models:rotate-90"
+                >
+                  ▸
+                </span>
+              </div>
+              <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span className="truncate font-medium text-foreground">
+                  {selectedModel.label}
+                </span>
+                <code className="max-w-[16rem] truncate text-xs text-accent-2">
+                  {selectedModel.id}
+                </code>
+                {selectedModelId === defaultModelId ? (
+                  <Badge
+                    variant="outline"
+                    className="border-accent-2/35 text-accent-2"
+                  >
+                    default
+                  </Badge>
+                ) : null}
+                {selectedBenchResult?.ok ? (
+                  <Badge variant="outline" className="border-ok/35 text-ok">
+                    {formatMs(selectedBenchResult.latencyMs)}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+            <div
+              className="flex w-full flex-wrap items-center gap-2.5 md:w-auto"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
             >
-              {benchStatus === 'running' ? 'Testing latency…' : 'Test latency'}
-            </Button>
-            {fastestOk ? (
               <Button
                 type="button"
-                onClick={() => persistDefault(fastestOk.modelId)}
+                variant="outline"
+                size="sm"
+                onClick={runBenchmark}
+                disabled={!apiKeyConfigured || benchStatus === 'running'}
                 className="max-md:flex-1"
               >
-                Use fastest as default
+                {benchStatus === 'running' ? 'Testing…' : 'Test latency'}
               </Button>
-            ) : null}
-          </div>
-        </div>
-
-        {benchStatus === 'running' ? (
-          <div
-            className="mb-4 grid gap-2 rounded-xl border border-border bg-[rgba(5,10,8,0.55)] p-3"
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="font-medium text-foreground">
-                Testing latency
-                {benchProgress
-                  ? ` · ${benchProgress.index + 1} of ${benchProgress.total}`
-                  : '…'}
-              </span>
-              <span className="tabular-nums text-muted-foreground">
-                {benchProgress
-                  ? `${Math.round(
-                      ((benchProgress.index + 1) / benchProgress.total) * 100,
-                    )}%`
-                  : '0%'}
-              </span>
+              {fastestOk ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => persistDefault(fastestOk.modelId)}
+                  className="max-md:flex-1"
+                >
+                  Use fastest as default
+                </Button>
+              ) : null}
             </div>
-            <Progress
-              value={
-                benchProgress
-                  ? ((benchProgress.index + 1) / benchProgress.total) * 100
-                  : 0
-              }
-              className="h-2 bg-secondary"
-            />
-            {benchProgress ? (
-              <p className="m-0 truncate text-xs text-muted-foreground">
-                Current model:{' '}
-                <code className="text-accent-2">{benchProgress.modelId}</code>
-              </p>
-            ) : (
-              <p className="m-0 text-xs text-muted-foreground">
-                Starting benchmark…
-              </p>
-            )}
-          </div>
-        ) : null}
-        {benchError ? (
-          <p className="mt-0 mb-3 text-destructive">{benchError}</p>
-        ) : null}
+          </summary>
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3.5">
-          {orderedModels.map(({ model, result }, rank) => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              selected={selectedModelId === model.id}
-              isDefault={defaultModelId === model.id}
-              result={result}
-              rank={Object.keys(benchResults).length ? rank + 1 : null}
-              isFastest={fastestOk?.modelId === model.id}
-              onSelect={() => setSelectedModelId(model.id)}
-              onSetDefault={() => {
-                if (result && !result.ok) return;
-                persistDefault(model.id);
-              }}
-              canSetDefault={!result || result.ok}
-            />
-          ))}
-        </div>
+          <div className="mt-4">
+            <p className="mt-0 mb-3 text-sm text-muted-foreground">
+              Select a model or benchmark the list for live latency.
+            </p>
+
+            {benchStatus === 'running' ? (
+              <div
+                className="mb-3 grid gap-2 rounded-xl border border-border bg-[rgba(5,10,8,0.55)] p-3"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-medium text-foreground">
+                    Testing latency
+                    {benchProgress
+                      ? ` · ${benchProgress.index + 1} of ${benchProgress.total}`
+                      : '…'}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {benchProgress
+                      ? `${Math.round(
+                          ((benchProgress.index + 1) / benchProgress.total) * 100,
+                        )}%`
+                      : '0%'}
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    benchProgress
+                      ? ((benchProgress.index + 1) / benchProgress.total) * 100
+                      : 0
+                  }
+                  className="h-2 bg-secondary"
+                />
+                {benchProgress ? (
+                  <p className="m-0 truncate text-xs text-muted-foreground">
+                    Current model:{' '}
+                    <code className="text-accent-2">{benchProgress.modelId}</code>
+                  </p>
+                ) : (
+                  <p className="m-0 text-xs text-muted-foreground">
+                    Starting benchmark…
+                  </p>
+                )}
+              </div>
+            ) : null}
+            {benchError ? (
+              <p className="mt-0 mb-3 text-destructive">{benchError}</p>
+            ) : null}
+
+            <div className="grid gap-1.5">
+              {orderedModels.map(({ model, result }, rank) => (
+                <ModelRow
+                  key={model.id}
+                  model={model}
+                  selected={selectedModelId === model.id}
+                  isDefault={defaultModelId === model.id}
+                  result={result}
+                  rank={Object.keys(benchResults).length ? rank + 1 : null}
+                  isFastest={fastestOk?.modelId === model.id}
+                  onSelect={() => setSelectedModelId(model.id)}
+                  onSetDefault={() => {
+                    if (result && !result.ok) return;
+                    persistDefault(model.id);
+                  }}
+                  canSetDefault={!result || result.ok}
+                />
+              ))}
+            </div>
+          </div>
+        </details>
       </section>
 
       <section className="grid gap-4 animate-rise [animation-delay:200ms]">
@@ -511,7 +573,17 @@ export function Playground() {
           className={cn(panelClass, 'flex flex-col [animation-delay:200ms]')}
           onSubmit={handleSend}
         >
-          <h2 className="m-0 text-lg font-semibold">Prompt</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="m-0 text-lg font-semibold">Prompt</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={pickRandomPrompt}
+            >
+              Random question
+            </Button>
+          </div>
           <Textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
@@ -708,7 +780,7 @@ export function Playground() {
   );
 }
 
-function ModelCard({
+function ModelRow({
   model,
   selected,
   isDefault,
@@ -729,10 +801,12 @@ function ModelCard({
   onSetDefault: () => void;
   canSetDefault: boolean;
 }) {
+  const showSetDefault = selected && !isDefault && canSetDefault;
+
   return (
-    <article
+    <div
       className={cn(
-        'grid gap-2.5 rounded-2xl border border-border bg-[rgba(7,17,12,0.55)] p-3.5 transition-[border-color,transform,background] duration-200 hover:-translate-y-0.5 hover:border-primary/40',
+        'flex flex-wrap items-center gap-2 rounded-xl border border-border bg-[rgba(7,17,12,0.55)] px-3 py-2 transition-[border-color,background] duration-200 hover:border-primary/40',
         selected && 'border-primary bg-primary/8',
         isFastest && 'shadow-[inset_0_0_0_1px_rgba(183,255,60,0.35)]',
         result && !result.ok && 'opacity-[0.78]',
@@ -741,34 +815,38 @@ function ModelCard({
       <button
         type="button"
         onClick={onSelect}
-        className="grid cursor-pointer gap-1.5 border-0 bg-transparent p-0 text-left text-inherit outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 text-left text-inherit outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
-            {model.vendor}
+        {rank ? (
+          <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">
+            #{rank}
           </span>
-          <Badge
-            variant="outline"
-            className="border-accent-2/28 text-accent-2 lowercase tracking-wide"
+        ) : null}
+        <span className="hidden w-[5.5rem] shrink-0 truncate text-xs uppercase tracking-[0.06em] text-muted-foreground sm:block">
+          {model.vendor}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-foreground">
+            {model.label}
+          </span>
+          <code
+            className="block truncate text-[0.7rem] text-accent-2"
+            title={model.id}
           >
-            {model.useCase}
-          </Badge>
-          {rank ? (
-            <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
-              #{rank}
-            </span>
-          ) : null}
-        </div>
-        <h3 className="m-0 text-[1.05rem] font-semibold">{model.label}</h3>
-        <code className="text-accent-2 break-all">{model.id}</code>
-        <div className="flex flex-wrap items-center gap-2">
+            {model.id}
+          </code>
+        </span>
+        <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
           {result ? (
             result.ok ? (
               <Badge variant="outline" className="border-ok/35 text-ok">
                 {formatMs(result.latencyMs)}
               </Badge>
             ) : (
-              <Badge variant="destructive">
+              <Badge
+                variant="destructive"
+                title={result.error ?? undefined}
+              >
                 {result.status === 504 ? 'timeout' : 'error'}
               </Badge>
             )
@@ -785,21 +863,21 @@ function ModelCard({
               fastest
             </Badge>
           ) : null}
-        </div>
-        {result?.error ? (
-          <p className="m-0 text-xs leading-snug text-destructive">{result.error}</p>
-        ) : null}
+        </span>
       </button>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        className="w-full"
-        onClick={onSetDefault}
-        disabled={!canSetDefault}
-      >
-        Set as default
-      </Button>
-    </article>
+      {showSetDefault ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={onSetDefault}
+          className="shrink-0"
+          aria-label={`Set ${model.label} as default`}
+        >
+          <Pin data-icon="inline-start" className="size-3.5" />
+          Set default
+        </Button>
+      ) : null}
+    </div>
   );
 }

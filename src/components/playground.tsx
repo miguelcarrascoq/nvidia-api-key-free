@@ -101,9 +101,9 @@ export function Playground() {
 
   const [benchStatus, setBenchStatus] = useState<BenchStatus>('idle');
   const [benchProgress, setBenchProgress] = useState<{
-    index: number;
+    completed: number;
     total: number;
-    modelId: string;
+    activeModelIds: string[];
   } | null>(null);
   const [benchResults, setBenchResults] = useState<Record<string, BenchmarkResult>>(
     {},
@@ -362,22 +362,53 @@ export function Playground() {
           if (!line.trim()) continue;
           const event = JSON.parse(line) as
             | { type: 'start'; total: number }
-            | { type: 'progress'; index: number; total: number; modelId: string }
-            | { type: 'result'; result: BenchmarkResult }
+            | {
+                type: 'progress';
+                modelId: string;
+                active: boolean;
+                completed: number;
+                total: number;
+              }
+            | {
+                type: 'result';
+                completed: number;
+                total: number;
+                result: BenchmarkResult;
+              }
             | { type: 'done' };
 
-          if (event.type === 'progress') {
+          if (event.type === 'start') {
             setBenchProgress({
-              index: event.index,
+              completed: 0,
               total: event.total,
-              modelId: event.modelId,
+              activeModelIds: [],
             });
+          }
+
+          if (event.type === 'progress' && event.active) {
+            setBenchProgress((prev) => ({
+              completed: event.completed,
+              total: event.total,
+              activeModelIds: [
+                ...(prev?.activeModelIds ?? []).filter(
+                  (id) => id !== event.modelId,
+                ),
+                event.modelId,
+              ],
+            }));
           }
 
           if (event.type === 'result') {
             setBenchResults((prev) => ({
               ...prev,
               [event.result.modelId]: event.result,
+            }));
+            setBenchProgress((prev) => ({
+              completed: event.completed,
+              total: event.total,
+              activeModelIds: (prev?.activeModelIds ?? []).filter(
+                (id) => id !== event.result.modelId,
+              ),
             }));
           }
         }
@@ -539,29 +570,31 @@ export function Playground() {
                   <span className="font-medium text-foreground">
                     Testing latency
                     {benchProgress
-                      ? ` · ${benchProgress.index + 1} of ${benchProgress.total}`
+                      ? ` · ${benchProgress.completed} of ${benchProgress.total}`
                       : '…'}
                   </span>
                   <span className="tabular-nums text-muted-foreground">
-                    {benchProgress
+                    {benchProgress && benchProgress.total > 0
                       ? `${Math.round(
-                          ((benchProgress.index + 1) / benchProgress.total) * 100,
+                          (benchProgress.completed / benchProgress.total) * 100,
                         )}%`
                       : '0%'}
                   </span>
                 </div>
                 <Progress
                   value={
-                    benchProgress
-                      ? ((benchProgress.index + 1) / benchProgress.total) * 100
+                    benchProgress && benchProgress.total > 0
+                      ? (benchProgress.completed / benchProgress.total) * 100
                       : 0
                   }
                   className="h-2 bg-secondary"
                 />
-                {benchProgress ? (
+                {benchProgress && benchProgress.activeModelIds.length > 0 ? (
                   <p className="m-0 truncate text-xs text-muted-foreground">
-                    Current model:{' '}
-                    <code className="text-accent-2">{benchProgress.modelId}</code>
+                    In progress:{' '}
+                    <code className="text-accent-2">
+                      {benchProgress.activeModelIds.join(', ')}
+                    </code>
                   </p>
                 ) : (
                   <p className="m-0 text-xs text-muted-foreground">

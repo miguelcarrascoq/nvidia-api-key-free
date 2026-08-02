@@ -39,7 +39,7 @@ Deploy as usual. Do **not** set `NVIDIA_API_KEY` in Vercel environment variables
 - Bring-your-own NVIDIA API key (local persistence; clear/change from the UI)
 - Coding-focused model list from the [NVIDIA Build](https://build.nvidia.com/models?q=coding) catalog
 - Collapsible model picker with per-model latency ranks after benchmarking
-- **Test latency** — sequential NDJSON benchmark of every model; sort by speed
+- **Test latency** — parallel (concurrency 4) NDJSON benchmark of every model; sort by speed
 - **Set as default** / **Use fastest as default** (persisted in `localStorage`)
 - Prompt textarea with **Random question** (sample prompts: code, Mermaid, OS commands, and more)
 - Generation presets: Default, Precise, Balanced, Creative (plus manual sliders)

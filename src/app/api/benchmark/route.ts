@@ -8,6 +8,7 @@ export const maxDuration = 300;
 
 const BENCHMARK_PROMPT = 'Reply with exactly: OK';
 const PER_MODEL_TIMEOUT_MS = 45_000;
+const CONCURRENCY = 4;
 
 async function withTimeout<T>(
   promise: Promise<T>,
@@ -87,18 +88,39 @@ export async function POST(req: Request) {
 
       send({ type: 'start', total: MODELS.length });
 
-      for (let index = 0; index < MODELS.length; index += 1) {
-        const model = MODELS[index];
-        send({
-          type: 'progress',
-          index,
-          total: MODELS.length,
-          modelId: model.id,
-        });
+      let next = 0;
+      let completed = 0;
 
-        const result = await benchmarkModel(model.id, apiKey);
-        send({ type: 'result', index, total: MODELS.length, result });
+      async function worker() {
+        while (next < MODELS.length) {
+          const index = next;
+          next += 1;
+          const model = MODELS[index];
+          send({
+            type: 'progress',
+            modelId: model.id,
+            active: true,
+            completed,
+            total: MODELS.length,
+          });
+
+          const result = await benchmarkModel(model.id, apiKey);
+          completed += 1;
+          send({
+            type: 'result',
+            completed,
+            total: MODELS.length,
+            result,
+          });
+        }
       }
+
+      await Promise.all(
+        Array.from(
+          { length: Math.min(CONCURRENCY, MODELS.length) },
+          () => worker(),
+        ),
+      );
 
       send({ type: 'done' });
       controller.close();

@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { Loader2, Pin } from 'lucide-react';
+import { ChevronRight, Loader2, Pin } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
@@ -465,13 +465,11 @@ export function Playground() {
           <summary className="flex cursor-pointer list-none flex-col gap-3 marker:content-none [&::-webkit-details-marker]:hidden md:flex-row md:items-center md:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="m-0 text-lg font-semibold">Models</h2>
-                <span
+                <ChevronRight
                   aria-hidden
-                  className="text-xs text-muted-foreground transition-transform group-open/models:rotate-90"
-                >
-                  ▸
-                </span>
+                  className="size-4 shrink-0 text-muted-foreground transition-transform group-open/models:rotate-90"
+                />
+                <h2 className="m-0 text-lg font-semibold">Models</h2>
               </div>
               <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span className="truncate font-medium text-foreground">
@@ -625,21 +623,27 @@ export function Playground() {
           />
 
           <details
-            className="my-4 rounded-xl border border-border/80 bg-[rgba(5,10,8,0.35)] px-3.5 py-2.5"
+            className="group/params my-4 rounded-xl border border-border/80 bg-[rgba(5,10,8,0.35)] px-3.5 py-2.5"
             open={paramsOpen}
             onToggle={(event) => setParamsOpen(event.currentTarget.open)}
           >
-            <summary className="cursor-pointer select-none text-sm font-medium text-muted-foreground">
-              Parameters
-              {activePreset ? (
-                <span className="ml-2 font-normal text-muted-foreground/80">
-                  · {activePreset.label}
-                </span>
-              ) : (
-                <span className="ml-2 font-normal text-muted-foreground/80">
-                  · Custom
-                </span>
-              )}
+            <summary className="flex cursor-pointer list-none select-none items-center gap-2 text-sm font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+              <ChevronRight
+                aria-hidden
+                className="size-3.5 shrink-0 transition-transform group-open/params:rotate-90"
+              />
+              <span>
+                Parameters
+                {activePreset ? (
+                  <span className="ml-2 font-normal text-muted-foreground/80">
+                    · {activePreset.label}
+                  </span>
+                ) : (
+                  <span className="ml-2 font-normal text-muted-foreground/80">
+                    · Custom
+                  </span>
+                )}
+              </span>
             </summary>
             <div className="mt-3.5 grid gap-3.5">
               <div className="grid gap-2">

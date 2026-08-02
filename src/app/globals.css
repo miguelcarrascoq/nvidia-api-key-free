@@ -224,7 +224,8 @@
 .markdown-body pre,
 .markdown-body blockquote,
 .markdown-body table,
-.markdown-body .markdown-code-block {
+.markdown-body .markdown-code-block,
+.markdown-body .markdown-mermaid {
   margin: 0.75em 0;
 }
 
@@ -367,4 +368,48 @@
 .markdown-body .markdown-copy-btn:hover {
   color: var(--foreground);
   background: rgba(19, 38, 27, 0.9);
+}
+
+.markdown-body .markdown-code-highlight pre {
+  margin: 0;
+  padding: 0.85rem 2.75rem 0.85rem 0.9rem;
+  overflow-x: auto;
+  background: transparent !important;
+}
+
+.markdown-body .markdown-code-highlight code {
+  display: block;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: transparent !important;
+  border: none;
+  padding: 0;
+}
+
+.markdown-body .markdown-mermaid {
+  position: relative;
+  border: 1px solid rgba(118, 255, 168, 0.14);
+  border-radius: 0.55rem;
+  background: var(--bg-1);
+  overflow-x: auto;
+  padding: 0.85rem 2.75rem 0.85rem 0.9rem;
+}
+
+.markdown-body .markdown-mermaid-svg {
+  display: flex;
+  justify-content: center;
+  min-height: 2rem;
+}
+
+.markdown-body .markdown-mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-body .markdown-mermaid-error {
+  margin: 0;
+  padding: 0.65rem 2.75rem 0 0.9rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
 }

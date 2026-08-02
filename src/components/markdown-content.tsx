@@ -1,7 +1,15 @@
 'use client';
 
 import { Check, Copy } from 'lucide-react';
-import { Children, isValidElement, useEffect, useState, type ReactNode } from 'react';
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -18,9 +26,13 @@ function extractText(node: ReactNode): string {
   return '';
 }
 
-function CodeBlock({ children }: { children: ReactNode }) {
+function languageFromClassName(className?: string): string | undefined {
+  const match = /language-([^\s]+)/.exec(className ?? '');
+  return match?.[1];
+}
+
+function CopyButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
-  const code = extractText(children).replace(/\n$/, '');
 
   useEffect(() => {
     if (!copied) return;
@@ -38,18 +50,144 @@ function CodeBlock({ children }: { children: ReactNode }) {
   }
 
   return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className="markdown-copy-btn"
+      aria-label={copied ? 'Copied' : 'Copy code'}
+      onClick={handleCopy}
+    >
+      {copied ? <Check /> : <Copy />}
+    </Button>
+  );
+}
+
+function CodeBlock({ code, language }: { code: string; language?: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!language) {
+      setHtml(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function highlight() {
+      try {
+        const { codeToHtml } = await import('shiki');
+        const result = await codeToHtml(code, {
+          lang: language!,
+          theme: 'github-dark',
+        });
+        if (!cancelled) setHtml(result);
+      } catch {
+        if (!cancelled) setHtml(null);
+      }
+    }
+
+    void highlight();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, language]);
+
+  return (
     <div className="markdown-code-block">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="markdown-copy-btn"
-        aria-label={copied ? 'Copied' : 'Copy code'}
-        onClick={handleCopy}
-      >
-        {copied ? <Check /> : <Copy />}
-      </Button>
-      <pre>{children}</pre>
+      <CopyButton code={code} />
+      {html ? (
+        <div
+          className="markdown-code-highlight"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : (
+        <pre>
+          <code className={language ? `language-${language}` : undefined}>{code}</code>
+        </pre>
+      )}
+    </div>
+  );
+}
+
+let mermaidModule: Promise<typeof import('mermaid').default> | null = null;
+
+function loadMermaid() {
+  if (!mermaidModule) {
+    mermaidModule = import('mermaid').then((mod) => {
+      mod.default.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        securityLevel: 'strict',
+      });
+      return mod.default;
+    });
+  }
+  return mermaidModule;
+}
+
+function MermaidBlock({ code }: { code: string }) {
+  const reactId = useId().replace(/:/g, '');
+  const renderCount = useRef(0);
+  const [svg, setSvg] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function renderDiagram() {
+      if (!code.trim()) {
+        setSvg(null);
+        setError(false);
+        return;
+      }
+
+      try {
+        const mermaid = await loadMermaid();
+        renderCount.current += 1;
+        const { svg: rendered } = await mermaid.render(
+          `mermaid-${reactId}-${renderCount.current}`,
+          code,
+        );
+        if (!cancelled) {
+          setSvg(rendered);
+          setError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setSvg(null);
+          setError(true);
+        }
+      }
+    }
+
+    void renderDiagram();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, reactId]);
+
+  if (svg) {
+    return (
+      <div className="markdown-mermaid">
+        <CopyButton code={code} />
+        <div
+          className="markdown-mermaid-svg"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="markdown-code-block">
+      <CopyButton code={code} />
+      {error ? (
+        <p className="markdown-mermaid-error">Could not render diagram</p>
+      ) : null}
+      <pre>
+        <code className="language-mermaid">{code}</code>
+      </pre>
     </div>
   );
 }
@@ -72,11 +210,26 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
               {children}
             </a>
           ),
-          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+          pre: ({ children }) => {
+            const child = Children.toArray(children)[0];
+            const codeClassName =
+              isValidElement<{ className?: string }>(child)
+                ? child.props.className
+                : undefined;
+            const language = languageFromClassName(codeClassName);
+            const code = extractText(children).replace(/\n$/, '');
+
+            if (language === 'mermaid') {
+              return <MermaidBlock code={code} />;
+            }
+
+            return <CodeBlock code={code} language={language} />;
+          },
           code: ({ className: codeClassName, children, ...props }) => {
-            const isBlock = Children.toArray(children).some(
-              (child) => typeof child === 'string' && child.includes('\n'),
-            ) || Boolean(codeClassName?.includes('language-'));
+            const isBlock =
+              Children.toArray(children).some(
+                (child) => typeof child === 'string' && child.includes('\n'),
+              ) || Boolean(codeClassName?.includes('language-'));
 
             if (isBlock) {
               return (

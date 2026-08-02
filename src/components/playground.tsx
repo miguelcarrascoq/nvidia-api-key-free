@@ -76,6 +76,7 @@ export function Playground() {
   const [nonStreamReply, setNonStreamReply] = useState<string | null>(null);
   const [nonStreamPending, setNonStreamPending] = useState(false);
   const [nonStreamError, setNonStreamError] = useState<string | null>(null);
+  const [paramsOpen, setParamsOpen] = useState(true);
 
   const [benchStatus, setBenchStatus] = useState<BenchStatus>('idle');
   const [benchProgress, setBenchProgress] = useState<{
@@ -88,6 +89,7 @@ export function Playground() {
   );
   const [benchError, setBenchError] = useState<string | null>(null);
 
+  const responsePanelRef = useRef<HTMLDivElement>(null);
   const paramsRef = useRef({
     model: selectedModelId,
     temperature,
@@ -148,12 +150,20 @@ export function Playground() {
   const hasResponse =
     messages.length > 0 || Boolean(nonStreamReply) || Boolean(error || nonStreamError);
 
+  useEffect(() => {
+    setParamsOpen(!hasResponse);
+  }, [hasResponse]);
+
   function clearResponse() {
     if (isChatBusy) return;
     setMessages([]);
     clearError();
     setNonStreamReply(null);
     setNonStreamError(null);
+  }
+
+  function scrollResponseIntoView() {
+    responsePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   const activePreset = matchGenerationPreset({ temperature, topP, maxTokens });
@@ -204,6 +214,7 @@ export function Playground() {
     if (!text || isChatBusy || !apiKeyConfigured) return;
 
     setNonStreamError(null);
+    scrollResponseIntoView();
 
     if (!stream) {
       setNonStreamPending(true);
@@ -495,9 +506,9 @@ export function Playground() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-[1.05fr_0.95fr] animate-rise [animation-delay:200ms]">
+      <section className="grid gap-4 animate-rise [animation-delay:200ms]">
         <form
-          className={cn(panelClass, 'flex min-h-[420px] flex-col [animation-delay:200ms]')}
+          className={cn(panelClass, 'flex flex-col [animation-delay:200ms]')}
           onSubmit={handleSend}
         >
           <h2 className="m-0 text-lg font-semibold">Prompt</h2>
@@ -507,92 +518,110 @@ export function Playground() {
             rows={6}
             placeholder="Ask anything…"
             disabled={!apiKeyConfigured}
-            className="mt-3.5 min-h-[150px] flex-1 resize-y rounded-xl bg-[rgba(5,10,8,0.8)] px-4 py-3.5 text-base leading-relaxed"
+            className="mt-3.5 min-h-[150px] resize-y rounded-xl bg-[rgba(5,10,8,0.8)] px-4 py-3.5 text-base leading-relaxed"
           />
 
-          <div className="my-4 grid gap-3.5">
-            <div className="grid gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Preset</span>
-              <div
-                className="flex flex-wrap gap-2"
-                role="group"
-                aria-label="Generation presets"
-              >
-                {GENERATION_PRESETS.map((preset) => {
-                  const isActive = activePreset?.id === preset.id;
-                  return (
-                    <Button
-                      key={preset.id}
-                      type="button"
-                      size="sm"
-                      variant={isActive ? 'default' : 'outline'}
-                      aria-pressed={isActive}
-                      onClick={() => applyGenerationParams(preset)}
-                    >
-                      {preset.label}
-                    </Button>
-                  );
-                })}
+          <details
+            className="my-4 rounded-xl border border-border/80 bg-[rgba(5,10,8,0.35)] px-3.5 py-2.5"
+            open={paramsOpen}
+            onToggle={(event) => setParamsOpen(event.currentTarget.open)}
+          >
+            <summary className="cursor-pointer select-none text-sm font-medium text-muted-foreground">
+              Parameters
+              {activePreset ? (
+                <span className="ml-2 font-normal text-muted-foreground/80">
+                  · {activePreset.label}
+                </span>
+              ) : (
+                <span className="ml-2 font-normal text-muted-foreground/80">
+                  · Custom
+                </span>
+              )}
+            </summary>
+            <div className="mt-3.5 grid gap-3.5">
+              <div className="grid gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Preset</span>
+                <div
+                  className="flex flex-wrap gap-2"
+                  role="group"
+                  aria-label="Generation presets"
+                >
+                  {GENERATION_PRESETS.map((preset) => {
+                    const isActive = activePreset?.id === preset.id;
+                    return (
+                      <Button
+                        key={preset.id}
+                        type="button"
+                        size="sm"
+                        variant={isActive ? 'default' : 'outline'}
+                        aria-pressed={isActive}
+                        onClick={() => applyGenerationParams(preset)}
+                      >
+                        {preset.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="m-0 text-xs text-muted-foreground">
+                  {activePreset?.description ?? 'Custom — sliders adjusted manually.'}
+                </p>
               </div>
-              <p className="m-0 text-xs text-muted-foreground">
-                {activePreset?.description ?? 'Custom — sliders adjusted manually.'}
-              </p>
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="temperature" className="text-muted-foreground font-medium">
-                Temperature {temperature.toFixed(2)}
+              <div className="grid gap-1.5">
+                <Label htmlFor="temperature" className="text-muted-foreground font-medium">
+                  Temperature {temperature.toFixed(2)}
+                </Label>
+                <input
+                  id="temperature"
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  value={temperature}
+                  onChange={(event) => setTemperature(Number(event.target.value))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="top-p" className="text-muted-foreground font-medium">
+                  Top P {topP.toFixed(2)}
+                </Label>
+                <input
+                  id="top-p"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={topP}
+                  onChange={(event) => setTopP(Number(event.target.value))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="max-tokens" className="text-muted-foreground font-medium">
+                  Max tokens {maxTokens}
+                </Label>
+                <input
+                  id="max-tokens"
+                  type="range"
+                  min={16}
+                  max={2048}
+                  step={16}
+                  value={maxTokens}
+                  onChange={(event) => setMaxTokens(Number(event.target.value))}
+                />
+              </div>
+              <Label
+                htmlFor="stream"
+                className="grid grid-cols-[auto_1fr] items-center gap-2.5 text-muted-foreground font-medium"
+              >
+                <input
+                  id="stream"
+                  type="checkbox"
+                  checked={stream}
+                  onChange={(event) => setStream(event.target.checked)}
+                />
+                <span>Stream response</span>
               </Label>
-              <input
-                id="temperature"
-                type="range"
-                min={0}
-                max={2}
-                step={0.05}
-                value={temperature}
-                onChange={(event) => setTemperature(Number(event.target.value))}
-              />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="top-p" className="text-muted-foreground font-medium">
-                Top P {topP.toFixed(2)}
-              </Label>
-              <input
-                id="top-p"
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={topP}
-                onChange={(event) => setTopP(Number(event.target.value))}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="max-tokens" className="text-muted-foreground font-medium">
-                Max tokens {maxTokens}
-              </Label>
-              <input
-                id="max-tokens"
-                type="range"
-                min={16}
-                max={2048}
-                step={16}
-                value={maxTokens}
-                onChange={(event) => setMaxTokens(Number(event.target.value))}
-              />
-            </div>
-            <Label
-              htmlFor="stream"
-              className="grid grid-cols-[auto_1fr] items-center gap-2.5 text-muted-foreground font-medium"
-            >
-              <input
-                id="stream"
-                type="checkbox"
-                checked={stream}
-                onChange={(event) => setStream(event.target.checked)}
-              />
-              <span>Stream response</span>
-            </Label>
-          </div>
+          </details>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
@@ -615,23 +644,28 @@ export function Playground() {
           </div>
         </form>
 
-        <div className={cn(panelClass, 'min-h-[420px] [animation-delay:240ms]')}>
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <h2 className="m-0 text-lg font-semibold">Response</h2>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={clearResponse}
-              disabled={!hasResponse || isChatBusy}
-            >
-              Clear
-            </Button>
+        <div
+          ref={responsePanelRef}
+          className={cn(panelClass, 'min-h-[220px] scroll-mt-4 [animation-delay:240ms]')}
+        >
+          <div className="sticky top-0 z-10 -mx-5 -mt-5 mb-1 border-b border-border/70 bg-bg-2/95 px-5 pt-5 pb-3 backdrop-blur-md">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <h2 className="m-0 text-lg font-semibold">Response</h2>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearResponse}
+                disabled={!hasResponse || isChatBusy}
+              >
+                Clear
+              </Button>
+            </div>
+            <p className="mt-1.5 mb-0 text-sm text-muted-foreground">
+              Model{' '}
+              <code className="text-accent-2 break-all">{selectedModelId}</code>
+            </p>
           </div>
-          <p className="mt-1.5 mb-0 text-sm text-muted-foreground">
-            Model{' '}
-            <code className="text-accent-2 break-all">{selectedModelId}</code>
-          </p>
           {(error || nonStreamError) && (
             <p className="mt-3 mb-0 text-destructive">
               {error?.message || nonStreamError}

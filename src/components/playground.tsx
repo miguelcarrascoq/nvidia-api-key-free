@@ -963,12 +963,14 @@ export function Playground() {
               )
             ) : (
               <>
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   const text = messageText(message);
-                  const isAssistantLoading =
+                  const isLastMessage = index === messages.length - 1;
+                  const isAssistantStreaming =
                     message.role === 'assistant' &&
-                    !text &&
+                    isLastMessage &&
                     (status === 'submitted' || status === 'streaming');
+                  const isAssistantLoading = isAssistantStreaming && !text;
 
                   if (isAssistantLoading) {
                     return <AssistantLoadingCard key={message.id} />;
@@ -983,11 +985,30 @@ export function Playground() {
                           ? 'border-accent-2/22'
                           : 'border-primary/28',
                       )}
+                      aria-busy={isAssistantStreaming || undefined}
                     >
-                      <header className="mb-1.5 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                      <header className="mb-1.5 flex items-center gap-2 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                         {message.role === 'user' ? 'You' : 'Assistant'}
+                        {isAssistantStreaming ? (
+                          <Loader2
+                            className="size-3.5 animate-spin text-primary"
+                            aria-hidden
+                          />
+                        ) : null}
                       </header>
                       {text ? <MarkdownContent content={text} /> : null}
+                      {isAssistantStreaming && text ? (
+                        <p
+                          className="mt-3 mb-0 flex items-center gap-2 text-sm text-muted-foreground"
+                          aria-live="polite"
+                        >
+                          <Loader2
+                            className="size-4 animate-spin text-primary"
+                            aria-hidden
+                          />
+                          Generating response…
+                        </p>
+                      ) : null}
                     </article>
                   );
                 })}

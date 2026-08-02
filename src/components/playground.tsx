@@ -111,6 +111,7 @@ export function Playground() {
   const [benchError, setBenchError] = useState<string | null>(null);
 
   const responsePanelRef = useRef<HTMLDivElement>(null);
+  const responseEndRef = useRef<HTMLDivElement>(null);
   const samplePromptDeckRef = useRef<string[]>([]);
   const paramsRef = useRef({
     model: selectedModelId,
@@ -169,9 +170,12 @@ export function Playground() {
     });
 
   const isChatBusy = status === 'submitted' || status === 'streaming' || nonStreamPending;
+  const isStreaming = status === 'submitted' || status === 'streaming';
   const wasChatBusyRef = useRef(false);
   const hasResponse =
     messages.length > 0 || Boolean(nonStreamReply) || Boolean(error || nonStreamError);
+  const latestMessageText =
+    messages.length > 0 ? messageText(messages[messages.length - 1]!) : '';
 
   useEffect(() => {
     setParamsOpen(!hasResponse);
@@ -189,11 +193,24 @@ export function Playground() {
     responsePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function scrollResponseEndIntoView(behavior: ScrollBehavior = 'auto') {
+    responseEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+  }
+
+  // Follow newly streamed tokens so the latest content stays in view.
+  useEffect(() => {
+    if (!isStreaming) return;
+    const id = window.requestAnimationFrame(() => {
+      scrollResponseEndIntoView('auto');
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [isStreaming, latestMessageText, messages.length]);
+
   useEffect(() => {
     if (wasChatBusyRef.current && !isChatBusy && hasResponse) {
       // Wait a frame so the final message content is laid out before scrolling.
       const id = window.requestAnimationFrame(() => {
-        scrollResponseIntoView();
+        scrollResponseEndIntoView('smooth');
       });
       wasChatBusyRef.current = isChatBusy;
       return () => window.cancelAnimationFrame(id);
@@ -865,6 +882,7 @@ export function Playground() {
                 ) : null}
               </>
             )}
+            <div ref={responseEndRef} className="h-px w-full" aria-hidden />
           </div>
         </div>
       </section>

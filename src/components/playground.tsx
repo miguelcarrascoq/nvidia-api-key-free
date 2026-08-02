@@ -5,6 +5,7 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
+import { MarkdownContent } from '@/components/markdown-content';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -642,24 +643,29 @@ export function Playground() {
                 Responses will appear here.
               </p>
             ) : (
-              messages.map((message) => (
-                <article
-                  key={message.id}
-                  className={cn(
-                    'rounded-xl border bg-[rgba(5,10,8,0.55)] px-4 py-3.5',
-                    message.role === 'user'
-                      ? 'border-accent-2/22'
-                      : 'border-primary/28',
-                  )}
-                >
-                  <header className="mb-1.5 text-xs uppercase tracking-[0.08em] text-muted-foreground">
-                    {message.role === 'user' ? 'You' : 'Assistant'}
-                  </header>
-                  <p className="m-0 whitespace-pre-wrap leading-relaxed">
-                    {messageText(message) || (status === 'streaming' ? '…' : '')}
-                  </p>
-                </article>
-              ))
+              messages.map((message) => {
+                const text = messageText(message);
+                return (
+                  <article
+                    key={message.id}
+                    className={cn(
+                      'rounded-xl border bg-[rgba(5,10,8,0.55)] px-4 py-3.5',
+                      message.role === 'user'
+                        ? 'border-accent-2/22'
+                        : 'border-primary/28',
+                    )}
+                  >
+                    <header className="mb-1.5 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                      {message.role === 'user' ? 'You' : 'Assistant'}
+                    </header>
+                    {text ? (
+                      <MarkdownContent content={text} />
+                    ) : status === 'streaming' ? (
+                      <p className="m-0 leading-relaxed">…</p>
+                    ) : null}
+                  </article>
+                );
+              })
             )}
           </div>
         </div>

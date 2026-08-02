@@ -1,5 +1,7 @@
 # NVIDIA NIM Model Playground
 
+**Live demo:** [https://nvidia-api-key-free.vercel.app/](https://nvidia-api-key-free.vercel.app/)
+
 Next.js playground for the [NVIDIA Integrate API](https://integrate.api.nvidia.com/v1). Switch models, tune generation parameters, stream chat responses, and benchmark latency across the model list.
 
 ## Stack

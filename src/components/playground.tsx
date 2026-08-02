@@ -5,6 +5,11 @@ import { DefaultChatTransport, type UIMessage } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ApiKeySetup } from '@/components/api-key-setup';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 import type { BenchmarkResult } from '@/lib/benchmark';
 import {
   DEFAULT_MODEL_STORAGE_KEY,
@@ -14,6 +19,7 @@ import {
 } from '@/lib/models';
 import { NVIDIA_API_KEY_HEADER } from '@/lib/api-key-header';
 import { useApiKeyStore } from '@/store/api-key';
+import { cn } from '@/lib/utils';
 
 type BenchStatus = 'idle' | 'running' | 'done' | 'error';
 
@@ -29,6 +35,9 @@ function formatMs(ms: number | null | undefined): string {
   if (ms < 1000) return `${ms} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
 }
+
+const panelClass =
+  'rounded-2xl border border-border bg-bg-2 p-5 shadow-[var(--shadow)] animate-rise';
 
 export function Playground() {
   const apiKey = useApiKeyStore((state) => state.apiKey);
@@ -299,91 +308,145 @@ export function Playground() {
   const showBlockingSetup = hasHydrated && !apiKeyConfigured;
 
   return (
-    <div className="playground">
+    <div className="relative mx-auto grid w-[min(1120px,calc(100%-2rem))] gap-6 py-10 pb-16">
       <ApiKeySetup
         open={keyModalOpen || showBlockingSetup}
         allowDismiss={apiKeyConfigured}
         onClose={() => setKeyModalOpen(false)}
       />
 
-      <header className="hero">
-        <div className="brand-lockup">
-          <p className="brand">NVIDIA NIM</p>
-          <h1>Model Playground</h1>
+      <header className="grid min-h-[min(72vh,34rem)] content-center gap-5 animate-rise">
+        <div className="grid gap-3">
+          <h1 className="m-0 text-[clamp(2.75rem,9vw,5.5rem)] font-semibold leading-[0.92] tracking-[-0.04em] text-foreground">
+            NVIDIA NIM
+            <span
+              aria-hidden
+              className="mt-3 block h-1 w-24 origin-left rounded-full bg-primary animate-[brand-line_0.9s_ease_0.2s_both]"
+            />
+          </h1>
+          <p className="m-0 text-xl font-medium tracking-tight text-primary md:text-2xl">
+            Model Playground
+          </p>
         </div>
-        <p className="lede">
+        <p className="m-0 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
           Pick a model, tune generation params, and stream responses through the
           NVIDIA Integrate API.
         </p>
-        <div className="status-row">
-          <div className="key-status">
-            <span
-              className={
-                !hasHydrated
-                  ? 'pill muted'
-                  : apiKeyConfigured
-                    ? 'pill ok'
-                    : 'pill bad'
-              }
-            >
-              {!hasHydrated
-                ? 'Checking API key…'
-                : apiKeyConfigured
-                  ? 'API key configured'
-                  : 'API key missing'}
-            </span>
-            <button
-              type="button"
-              className="btn tiny"
-              onClick={() => setKeyModalOpen(true)}
-              disabled={!hasHydrated}
-            >
-              {apiKeyConfigured ? 'Change key' : 'Set API key'}
-            </button>
-          </div>
-          <span className="pill muted">Default: {defaultModelId}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => setKeyModalOpen(true)}
+            disabled={!hasHydrated}
+            className="max-md:w-full"
+          >
+            {apiKeyConfigured ? 'Change API key' : 'Set API key'}
+          </Button>
         </div>
       </header>
 
-      <section className="panel">
-        <div className="panel-head">
+      <div className="flex flex-wrap items-center gap-2.5 border-y border-border/80 py-3 animate-rise [animation-delay:80ms]">
+        <Badge
+          variant="outline"
+          className={cn(
+            !hasHydrated && 'border-border text-muted-foreground',
+            hasHydrated &&
+              apiKeyConfigured &&
+              'border-ok/35 text-ok',
+            hasHydrated &&
+              !apiKeyConfigured &&
+              'border-destructive/35 text-destructive',
+          )}
+        >
+          {!hasHydrated
+            ? 'Checking API key…'
+            : apiKeyConfigured
+              ? 'API key configured'
+              : 'API key missing'}
+        </Badge>
+        <Badge variant="secondary" className="max-w-full truncate font-mono text-[0.7rem]">
+          Default: {defaultModelId}
+        </Badge>
+      </div>
+
+      <section className={cn(panelClass, '[animation-delay:120ms]')}>
+        <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row">
           <div>
-            <h2>Models</h2>
-            <p>
+            <h2 className="m-0 text-lg font-semibold">Models</h2>
+            <p className="mt-1.5 mb-0 text-sm text-muted-foreground md:text-[0.95rem]">
               Coding models from NVIDIA Build — select one or benchmark the full
               list for live latency.
             </p>
           </div>
-          <div className="actions">
-            <button
+          <div className="flex w-full flex-wrap items-center gap-2.5 md:w-auto">
+            <Button
               type="button"
-              className="btn secondary"
+              variant="outline"
               onClick={runBenchmark}
               disabled={!apiKeyConfigured || benchStatus === 'running'}
+              className="max-md:flex-1"
             >
               {benchStatus === 'running' ? 'Testing latency…' : 'Test latency'}
-            </button>
+            </Button>
             {fastestOk ? (
-              <button
+              <Button
                 type="button"
-                className="btn primary"
                 onClick={() => persistDefault(fastestOk.modelId)}
+                className="max-md:flex-1"
               >
                 Use fastest as default
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
 
-        {benchProgress ? (
-          <p className="progress">
-            Testing {benchProgress.index + 1}/{benchProgress.total}:{' '}
-            <code>{benchProgress.modelId}</code>
-          </p>
+        {benchStatus === 'running' ? (
+          <div
+            className="mb-4 grid gap-2 rounded-xl border border-border bg-[rgba(5,10,8,0.55)] p-3"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-medium text-foreground">
+                Testing latency
+                {benchProgress
+                  ? ` · ${benchProgress.index + 1} of ${benchProgress.total}`
+                  : '…'}
+              </span>
+              <span className="tabular-nums text-muted-foreground">
+                {benchProgress
+                  ? `${Math.round(
+                      ((benchProgress.index + 1) / benchProgress.total) * 100,
+                    )}%`
+                  : '0%'}
+              </span>
+            </div>
+            <Progress
+              value={
+                benchProgress
+                  ? ((benchProgress.index + 1) / benchProgress.total) * 100
+                  : 0
+              }
+              className="h-2 bg-secondary"
+            />
+            {benchProgress ? (
+              <p className="m-0 truncate text-xs text-muted-foreground">
+                Current model:{' '}
+                <code className="text-accent-2">{benchProgress.modelId}</code>
+              </p>
+            ) : (
+              <p className="m-0 text-xs text-muted-foreground">
+                Starting benchmark…
+              </p>
+            )}
+          </div>
         ) : null}
-        {benchError ? <p className="error">{benchError}</p> : null}
+        {benchError ? (
+          <p className="mt-0 mb-3 text-destructive">{benchError}</p>
+        ) : null}
 
-        <div className="model-grid">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3.5">
           {orderedModels.map(({ model, result }, rank) => (
             <ModelCard
               key={model.id}
@@ -404,21 +467,28 @@ export function Playground() {
         </div>
       </section>
 
-      <section className="workspace">
-        <form className="panel composer" onSubmit={handleSend}>
-          <h2>Prompt</h2>
-          <textarea
+      <section className="grid gap-4 md:grid-cols-[1.05fr_0.95fr] animate-rise [animation-delay:200ms]">
+        <form
+          className={cn(panelClass, 'flex min-h-[420px] flex-col [animation-delay:200ms]')}
+          onSubmit={handleSend}
+        >
+          <h2 className="m-0 text-lg font-semibold">Prompt</h2>
+          <Textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             rows={6}
             placeholder="Ask anything…"
             disabled={!apiKeyConfigured}
+            className="mt-3.5 min-h-[150px] flex-1 resize-y rounded-xl bg-[rgba(5,10,8,0.8)] px-4 py-3.5 text-base leading-relaxed"
           />
 
-          <div className="controls">
-            <label>
-              <span>Temperature {temperature.toFixed(2)}</span>
+          <div className="my-4 grid gap-3.5">
+            <div className="grid gap-1.5">
+              <Label htmlFor="temperature" className="text-muted-foreground font-medium">
+                Temperature {temperature.toFixed(2)}
+              </Label>
               <input
+                id="temperature"
                 type="range"
                 min={0}
                 max={2}
@@ -426,10 +496,13 @@ export function Playground() {
                 value={temperature}
                 onChange={(event) => setTemperature(Number(event.target.value))}
               />
-            </label>
-            <label>
-              <span>Top P {topP.toFixed(2)}</span>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="top-p" className="text-muted-foreground font-medium">
+                Top P {topP.toFixed(2)}
+              </Label>
               <input
+                id="top-p"
                 type="range"
                 min={0}
                 max={1}
@@ -437,10 +510,13 @@ export function Playground() {
                 value={topP}
                 onChange={(event) => setTopP(Number(event.target.value))}
               />
-            </label>
-            <label>
-              <span>Max tokens {maxTokens}</span>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="max-tokens" className="text-muted-foreground font-medium">
+                Max tokens {maxTokens}
+              </Label>
               <input
+                id="max-tokens"
                 type="range"
                 min={16}
                 max={2048}
@@ -448,52 +524,75 @@ export function Playground() {
                 value={maxTokens}
                 onChange={(event) => setMaxTokens(Number(event.target.value))}
               />
-            </label>
-            <label className="toggle">
+            </div>
+            <Label
+              htmlFor="stream"
+              className="grid grid-cols-[auto_1fr] items-center gap-2.5 text-muted-foreground font-medium"
+            >
               <input
+                id="stream"
                 type="checkbox"
                 checked={stream}
                 onChange={(event) => setStream(event.target.checked)}
               />
               <span>Stream response</span>
-            </label>
+            </Label>
           </div>
 
-          <div className="actions">
-            <button
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button
               type="submit"
-              className="btn primary"
               disabled={!apiKeyConfigured || isChatBusy || !prompt.trim()}
+              className="max-md:flex-1"
             >
               {isChatBusy ? 'Running…' : 'Send'}
-            </button>
+            </Button>
             {status === 'streaming' || status === 'submitted' ? (
-              <button type="button" className="btn secondary" onClick={() => stop()}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => stop()}
+                className="max-md:flex-1"
+              >
                 Stop
-              </button>
+              </Button>
             ) : null}
           </div>
         </form>
 
-        <div className="panel response">
-          <h2>Response</h2>
-          <p className="meta">
-            Model <code>{selectedModelId}</code>
+        <div className={cn(panelClass, 'min-h-[420px] [animation-delay:240ms]')}>
+          <h2 className="m-0 text-lg font-semibold">Response</h2>
+          <p className="mt-1.5 mb-0 text-sm text-muted-foreground">
+            Model{' '}
+            <code className="text-accent-2 break-all">{selectedModelId}</code>
           </p>
           {(error || nonStreamError) && (
-            <p className="error">{error?.message || nonStreamError}</p>
+            <p className="mt-3 mb-0 text-destructive">
+              {error?.message || nonStreamError}
+            </p>
           )}
-          <div className="messages">
+          <div className="mt-4 grid gap-3">
             {messages.length === 0 && !nonStreamReply ? (
-              <p className="empty">Responses will appear here.</p>
+              <p className="m-0 text-sm text-muted-foreground">
+                Responses will appear here.
+              </p>
             ) : (
               messages.map((message) => (
                 <article
                   key={message.id}
-                  className={message.role === 'user' ? 'bubble user' : 'bubble assistant'}
+                  className={cn(
+                    'rounded-xl border bg-[rgba(5,10,8,0.55)] px-4 py-3.5',
+                    message.role === 'user'
+                      ? 'border-accent-2/22'
+                      : 'border-primary/28',
+                  )}
                 >
-                  <header>{message.role === 'user' ? 'You' : 'Assistant'}</header>
-                  <p>{messageText(message) || (status === 'streaming' ? '…' : '')}</p>
+                  <header className="mb-1.5 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                    {message.role === 'user' ? 'You' : 'Assistant'}
+                  </header>
+                  <p className="m-0 whitespace-pre-wrap leading-relaxed">
+                    {messageText(message) || (status === 'streaming' ? '…' : '')}
+                  </p>
                 </article>
               ))
             )}
@@ -527,48 +626,75 @@ function ModelCard({
 }) {
   return (
     <article
-      className={[
-        'model-card',
-        selected ? 'selected' : '',
-        isFastest ? 'fastest' : '',
-        result && !result.ok ? 'failed' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={cn(
+        'grid gap-2.5 rounded-2xl border border-border bg-[rgba(7,17,12,0.55)] p-3.5 transition-[border-color,transform,background] duration-200 hover:-translate-y-0.5 hover:border-primary/40',
+        selected && 'border-primary bg-primary/8',
+        isFastest && 'shadow-[inset_0_0_0_1px_rgba(183,255,60,0.35)]',
+        result && !result.ok && 'opacity-[0.78]',
+      )}
     >
-      <button type="button" className="model-select" onClick={onSelect}>
-        <div className="model-top">
-          <span className="vendor">{model.vendor}</span>
-          <span className="pill use-case">{model.useCase}</span>
-          {rank ? <span className="rank">#{rank}</span> : null}
-        </div>
-        <h3>{model.label}</h3>
-        <code>{model.id}</code>
-        <div className="latency">
-          {result ? (
-            result.ok ? (
-              <span className="pill ok">{formatMs(result.latencyMs)}</span>
-            ) : (
-              <span className="pill bad">
-                {result.status === 504 ? 'timeout' : 'error'}
-              </span>
-            )
-          ) : (
-            <span className="pill muted">not tested</span>
-          )}
-          {isDefault ? <span className="pill accent">default</span> : null}
-          {isFastest ? <span className="pill accent">fastest</span> : null}
-        </div>
-        {result?.error ? <p className="card-error">{result.error}</p> : null}
-      </button>
       <button
         type="button"
-        className="btn tiny"
+        onClick={onSelect}
+        className="grid cursor-pointer gap-1.5 border-0 bg-transparent p-0 text-left text-inherit outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
+            {model.vendor}
+          </span>
+          <Badge
+            variant="outline"
+            className="border-accent-2/28 text-accent-2 lowercase tracking-wide"
+          >
+            {model.useCase}
+          </Badge>
+          {rank ? (
+            <span className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
+              #{rank}
+            </span>
+          ) : null}
+        </div>
+        <h3 className="m-0 text-[1.05rem] font-semibold">{model.label}</h3>
+        <code className="text-accent-2 break-all">{model.id}</code>
+        <div className="flex flex-wrap items-center gap-2">
+          {result ? (
+            result.ok ? (
+              <Badge variant="outline" className="border-ok/35 text-ok">
+                {formatMs(result.latencyMs)}
+              </Badge>
+            ) : (
+              <Badge variant="destructive">
+                {result.status === 504 ? 'timeout' : 'error'}
+              </Badge>
+            )
+          ) : (
+            <Badge variant="secondary">not tested</Badge>
+          )}
+          {isDefault ? (
+            <Badge variant="outline" className="border-accent-2/35 text-accent-2">
+              default
+            </Badge>
+          ) : null}
+          {isFastest ? (
+            <Badge variant="outline" className="border-accent-2/35 text-accent-2">
+              fastest
+            </Badge>
+          ) : null}
+        </div>
+        {result?.error ? (
+          <p className="m-0 text-xs leading-snug text-destructive">{result.error}</p>
+        ) : null}
+      </button>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="w-full"
         onClick={onSetDefault}
         disabled={!canSetDefault}
       >
         Set as default
-      </button>
+      </Button>
     </article>
   );
 }

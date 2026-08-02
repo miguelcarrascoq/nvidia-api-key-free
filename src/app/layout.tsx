@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Mono, Space_Grotesk } from 'next/font/google';
 
+import { cn } from '@/lib/utils';
+
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -28,7 +30,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} h-full`}
+      className={cn(
+        'dark h-full font-sans',
+        spaceGrotesk.variable,
+        ibmPlexMono.variable,
+      )}
     >
       <body className="min-h-full antialiased">{children}</body>
     </html>

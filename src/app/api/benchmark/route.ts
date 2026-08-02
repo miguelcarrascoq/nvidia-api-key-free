@@ -70,14 +70,17 @@ async function benchmarkModel(
 }
 
 export async function POST(req: Request) {
-  const apiKey = getApiKeyFromRequest(req);
+  const requestApiKey = getApiKeyFromRequest(req);
 
-  if (!apiKey) {
+  if (!requestApiKey) {
     return Response.json(
       { error: 'Missing NVIDIA API key. Set your key in the playground.' },
       { status: 401 },
     );
   }
+
+  // Narrowed outside the stream closure so workers see a definite string.
+  const apiKey: string = requestApiKey;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
